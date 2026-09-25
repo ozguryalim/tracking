@@ -4,6 +4,8 @@
 
 CLI ile pano aynı veriyi kullanır. Her plan ve görev kendi projesine bağlıdır; görev değişiklikleri ve notlar aktör adı ile UTC zaman damgası taşıyan olay geçmişine yazılır. `status --json` ve `next --json` gibi komutlar ajanların durum okumasına uygundur.
 
+Veri SQLite içinde, WAL modu ve proje/durum/zaman sorguları için indekslerle saklanır. Bu nedenle ayrıca yönetilecek bir arama indeksi veya ayrı veri tabanı sunucusu gerekmez.
+
 ## Nasıl çalışır?
 
 | İşlem | Davranış |
@@ -15,7 +17,7 @@ CLI ile pano aynı veriyi kullanır. Her plan ve görev kendi projesine bağlıd
 
 Pano varsayılan olarak `http://127.0.0.1:4157` adresindedir. Başka bir yerel port için `tracking dashboard --listen 127.0.0.1:PORT` kullan; aynı örneği durdururken de `tracking stop --listen 127.0.0.1:PORT` ver. Başlatıcı yalnız yerel adres kabul eder. Web dosyaları ikili dosyanın içindedir; ayrı bir Node veya web derlemesi gerekmez. Pano açıkken proje listesinden geçiş yapabilir, plan ve görevleri düzenleyebilir, ilerlemeyi ve olay geçmişini görebilirsin.
 
-Yerel HTTP süreci yalnız düzenlenebilir web arayüzünü sunar; CLI komutları için gerekmez. `tracking` ilk çağrıda süreci başlatır, sonraki çağrılarda aynı süreci kullanır. Bilgisayar açılışında otomatik başlatılmaz; tarayıcı sekmesini kapatınca veri silinmez ve arka plan süreci `tracking stop` verilene kadar açık kalır. Bu Mac’te boşta süreç yaklaşık **14–17 MiB RAM** ve ölçüm anında **%0 CPU** kullandı; tarayıcı sekmesinin bellek kullanımı buna dahil değildir ve değerler cihaza göre değişir.
+Yerel HTTP süreci yalnız düzenlenebilir web arayüzünü sunar; CLI komutları için gerekmez. `tracking` ilk çağrıda süreci başlatır, sonraki çağrılarda aynı süreci kullanır. Bilgisayar açılışında otomatik başlatılmaz; tarayıcı sekmesini kapatınca veri silinmez ve arka plan süreci `tracking stop` verilene kadar açık kalır. Bu Mac’te boşta süreç yaklaşık **14–18 MiB RAM** ve ölçüm anında **%0 CPU** kullandı; tarayıcı sekmesinin bellek kullanımı buna dahil değildir ve değerler cihaza göre değişir.
 
 ## Kurulum
 
