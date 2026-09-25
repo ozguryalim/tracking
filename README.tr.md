@@ -21,6 +21,20 @@ Pano varsayılan olarak `http://127.0.0.1:4157` adresindedir. Başka bir yerel p
 
 Yerel HTTP süreci yalnız düzenlenebilir web arayüzünü sunar; CLI komutları için gerekmez. `tracking` ilk çağrıda süreci başlatır, sonraki çağrılarda aynı süreci kullanır. Bilgisayar açılışında otomatik başlatılmaz; tarayıcı sekmesini kapatınca veri silinmez ve arka plan süreci `tracking stop` verilene kadar açık kalır. Bu Mac’te boşta süreç yaklaşık **14–18 MiB RAM** ve ölçüm anında **%0 CPU** kullandı; tarayıcı sekmesinin bellek kullanımı buna dahil değildir ve değerler cihaza göre değişir.
 
+Panel Türkçe ve İngilizceyi destekler. Üstteki `EN` / `TR` seçimi arayüzü ve tarihleri anında değiştirir; tercih tarayıcıda saklanır. Açılışta varsa `?lang=en` veya `?lang=tr` uygulanır; ardından kayıtlı tercih, sonra tarayıcı dili kullanılır.
+
+## Panel önizlemesi
+
+Bu görüntüler İngilizce, tamamen örnek proje verileriyle alındı; gerçek kullanıcı verisi içermez.
+
+### Masaüstü
+
+![İngilizce Tracking paneli; proje listesi, ilerleme kartları ve görev planları](docs/screenshots/dashboard-en-desktop.png)
+
+### Mobil
+
+<img src="docs/screenshots/dashboard-en-mobile.png" alt="İngilizce Tracking panelinin mobil görünümü" width="390">
+
 ## Kurulum
 
 Kaynak koddan derlemek için [Git](https://git-scm.com/downloads) ve [Go](https://go.dev/dl/) **1.27.1 veya üzeri** gerekir. Önce depoyu al; zaten indirdiysen bu adımı atla:

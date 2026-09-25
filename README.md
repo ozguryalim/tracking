@@ -8,6 +8,8 @@ The CLI and dashboard share the same data. Each plan and task belongs to a proje
 
 Tracking stores data in SQLite with WAL mode and indexes for project, status, and time queries. There is no separate search index or database server to manage.
 
+The dashboard has a visible **EN / TR** language switch. On load, `?lang=en` or `?lang=tr` takes priority and is saved; otherwise a saved choice wins, followed by the browser language (Turkish for `tr*`, English for other languages). Switching updates the UI and dates immediately, saves the choice, and updates the URL.
+
 ## How it works
 
 | Action | Behavior |
@@ -20,6 +22,14 @@ Tracking stores data in SQLite with WAL mode and indexes for project, status, an
 The dashboard defaults to `http://127.0.0.1:4157`. To use another local port, run `tracking dashboard --listen 127.0.0.1:PORT`; use the same address with `tracking stop --listen 127.0.0.1:PORT` to stop that instance. The launcher accepts loopback addresses only. Web assets are embedded in the binary, so there is no separate Node or web build. In the dashboard, you can switch projects, edit plans and tasks, and inspect progress and event history.
 
 The local HTTP process serves the editable web UI only; CLI commands work without it. The first `tracking` call starts the process, and later calls reuse it. It does not start when the computer boots. Closing the browser tab does not delete data, and the background process stays up until `tracking stop` is called. On the Mac used for measurement, the idle process used approximately **14–18 MiB of RAM** and **0% CPU at the time of measurement**. Browser memory was not included; results vary by device.
+
+## Dashboard preview
+
+These screenshots show fictional English sample data.
+
+![Desktop Tracking dashboard showing a fictional project's plans and tasks](docs/screenshots/dashboard-en-desktop.png)
+
+<a href="docs/screenshots/dashboard-en-mobile.png"><img src="docs/screenshots/dashboard-en-mobile.png" alt="Mobile Tracking dashboard showing a fictional project's plans and tasks" width="390"></a>
 
 ## Installation
 
