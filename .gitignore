@@ -1,0 +1,6 @@
+/tracking
+/tracking.exe
+/dist/
+*.db
+*.db-wal
+*.db-shm

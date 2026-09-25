@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f8f8">
+    <title>Tracking — Proje planları</title>
+    <link rel="stylesheet" href="/app.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <svg class="icon-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+      <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+      <symbol id="icon-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+      <symbol id="icon-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></symbol>
+      <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></symbol>
+      <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+      <symbol id="icon-spark" viewBox="0 0 24 24"><path d="m12 2 1.8 7.2L21 11l-7.2 1.8L12 20l-1.8-7.2L3 11l7.2-1.8z"/></symbol>
+    </svg>
+
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar" aria-label="Proje gezintisi">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div><strong>Tracking</strong><small>Plan çalışma alanı</small></div>
+        </div>
+
+        <div class="sidebar-section-heading">
+          <span>PROJELER</span>
+          <button class="icon-button subtle" type="button" data-action="new-project" aria-label="Yeni proje oluştur">
+            <svg><use href="#icon-plus"></use></svg>
+          </button>
+        </div>
+        <nav id="project-list" class="project-list" aria-label="Projeler"></nav>
+        <button class="sidebar-create" type="button" data-action="new-project">
+          <svg><use href="#icon-plus"></use></svg> Yeni proje
+        </button>
+
+        <div class="sidebar-spacer"></div>
+        <div class="sidebar-footer">
+          <span class="connection-dot" aria-hidden="true"></span>
+          <div><strong>Çalışma alanı hazır</strong><small>Plan ve görevler kayıtlı.</small></div>
+        </div>
+      </aside>
+
+      <button class="mobile-scrim" id="mobile-scrim" type="button" data-action="close-menu" aria-label="Menüyü kapat" hidden></button>
+
+      <main class="main-area" id="main-area">
+        <header class="topbar">
+          <div class="topbar-left">
+            <button class="icon-button menu-button" type="button" data-action="open-menu" aria-label="Proje menüsünü aç">
+              <svg><use href="#icon-menu"></use></svg>
+            </button>
+            <span class="topbar-location">Çalışma alanı <svg><use href="#icon-chevron"></use></svg> <strong id="current-project-label">Projeler</strong></span>
+          </div>
+          <div class="topbar-right"><span class="today-label" id="today-label"></span><span class="topbar-avatar" aria-hidden="true">T</span></div>
+        </header>
+        <div id="page-content" class="page-content" aria-live="polite"></div>
+      </main>
+    </div>
+
+    <button class="drawer-backdrop" id="drawer-backdrop" type="button" data-action="close-drawer" aria-label="Görev detayını kapat" hidden></button>
+    <aside class="task-drawer" id="task-drawer" aria-label="Görev detayı" aria-modal="true" role="dialog" hidden></aside>
+
+    <dialog class="create-dialog" id="create-dialog" aria-labelledby="dialog-title">
+      <form id="create-form">
+        <div class="dialog-heading">
+          <div><span class="eyebrow">TRACKING</span><h2 id="dialog-title"></h2><p id="dialog-description"></p></div>
+          <button class="icon-button subtle" type="button" id="dialog-close" aria-label="Pencereyi kapat"><svg><use href="#icon-close"></use></svg></button>
+        </div>
+        <div id="dialog-fields"></div>
+        <p class="form-error" id="dialog-error" role="alert" hidden></p>
+        <div class="dialog-actions"><button class="button button-quiet" type="button" id="dialog-cancel">Vazgeç</button><button class="button button-primary" type="submit" id="dialog-submit">Oluştur</button></div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>
