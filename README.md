@@ -1,36 +1,38 @@
 # Tracking
 
-**AI ajanlarıyla yaptığın planı proje proje kaydet, yapılan işi tarihli notlarla takip et.** Tracking; Codex ve Claude Code’un kullanabileceği bir CLI, yerel SQLite veri tabanı ve sade bir tarayıcı panosu sunar. Ajan plan ve görevleri doğrudan oluşturabilir, düzenleyebilir, `todo` / `doing` / `blocked` / `done` durumlarını değiştirebilir. Ayrı bir onay kapısı veya zorunlu kanıt adımı yoktur.
+English | [Türkçe](README.tr.md)
 
-CLI ile pano aynı veriyi kullanır. Her plan ve görev kendi projesine bağlıdır; görev değişiklikleri ve notlar aktör adı ile UTC zaman damgası taşıyan olay geçmişine yazılır. `status --json` ve `next --json` gibi komutlar ajanların durum okumasına uygundur.
+**Keep AI-assisted plans organized by project, with dated notes for the work behind every task.** Tracking provides a CLI for Codex and Claude Code, a local SQLite database, and a simple browser dashboard. Agents can create and edit plans and tasks directly, and move tasks through `todo`, `doing`, `blocked`, and `done`. There is no separate approval gate or mandatory evidence step.
 
-Veri SQLite içinde, WAL modu ve proje/durum/zaman sorguları için indekslerle saklanır. Bu nedenle ayrıca yönetilecek bir arama indeksi veya ayrı veri tabanı sunucusu gerekmez.
+The CLI and dashboard share the same data. Each plan and task belongs to a project; task changes and notes are recorded in an event history with an actor and UTC timestamp. Commands such as `status --json` and `next --json` give agents structured access to that state.
 
-## Nasıl çalışır?
+Tracking stores data in SQLite with WAL mode and indexes for project, status, and time queries. There is no separate search index or database server to manage.
 
-| İşlem | Davranış |
+## How it works
+
+| Action | Behavior |
 | --- | --- |
-| `tracking` veya `tracking dashboard` | Sağlıklı yerel pano açıksa onu kullanır; değilse arka planda başlatır. Tarayıcıyı açıp terminale döner. |
-| `tracking serve` | Panoyu ön planda çalıştırır; sunucuda veya elle yönetilen oturumda kullanılır. |
-| `tracking stop` | Tracking’in başlattığı arka plan pano sürecini durdurur. Elle başlatılmış `serve` sürecini durdurmaz. |
-| Plan ve görev komutları | SQLite’a doğrudan erişir. Pano sunucusunun çalışması gerekmez. |
+| `tracking` or `tracking dashboard` | Reuses a healthy local dashboard if one is running; otherwise starts it in the background. Opens the browser and returns to the terminal. |
+| `tracking serve` | Runs the dashboard in the foreground for a server or a manually managed session. |
+| `tracking stop` | Stops a background dashboard process started by Tracking. It does not stop a manually started `serve` process. |
+| Plan and task commands | Access SQLite directly. The dashboard server does not need to be running. |
 
-Pano varsayılan olarak `http://127.0.0.1:4157` adresindedir. Başka bir yerel port için `tracking dashboard --listen 127.0.0.1:PORT` kullan; aynı örneği durdururken de `tracking stop --listen 127.0.0.1:PORT` ver. Başlatıcı yalnız yerel adres kabul eder. Web dosyaları ikili dosyanın içindedir; ayrı bir Node veya web derlemesi gerekmez. Pano açıkken proje listesinden geçiş yapabilir, plan ve görevleri düzenleyebilir, ilerlemeyi ve olay geçmişini görebilirsin.
+The dashboard defaults to `http://127.0.0.1:4157`. To use another local port, run `tracking dashboard --listen 127.0.0.1:PORT`; use the same address with `tracking stop --listen 127.0.0.1:PORT` to stop that instance. The launcher accepts loopback addresses only. Web assets are embedded in the binary, so there is no separate Node or web build. In the dashboard, you can switch projects, edit plans and tasks, and inspect progress and event history.
 
-Yerel HTTP süreci yalnız düzenlenebilir web arayüzünü sunar; CLI komutları için gerekmez. `tracking` ilk çağrıda süreci başlatır, sonraki çağrılarda aynı süreci kullanır. Bilgisayar açılışında otomatik başlatılmaz; tarayıcı sekmesini kapatınca veri silinmez ve arka plan süreci `tracking stop` verilene kadar açık kalır. Bu Mac’te boşta süreç yaklaşık **14–18 MiB RAM** ve ölçüm anında **%0 CPU** kullandı; tarayıcı sekmesinin bellek kullanımı buna dahil değildir ve değerler cihaza göre değişir.
+The local HTTP process serves the editable web UI only; CLI commands work without it. The first `tracking` call starts the process, and later calls reuse it. It does not start when the computer boots. Closing the browser tab does not delete data, and the background process stays up until `tracking stop` is called. On the Mac used for measurement, the idle process used approximately **14–18 MiB of RAM** and **0% CPU at the time of measurement**. Browser memory was not included; results vary by device.
 
-## Kurulum
+## Installation
 
-Kaynak koddan derlemek için [Git](https://git-scm.com/downloads) ve [Go](https://go.dev/dl/) **1.27.1 veya üzeri** gerekir. Önce depoyu al; zaten indirdiysen bu adımı atla:
+Building from source requires [Git](https://git-scm.com/downloads) and [Go](https://go.dev/dl/) **1.27.1 or newer**. Clone the repository first, or skip this step if you already have the source:
 
 ```sh
 git clone https://github.com/ozguryalim/tracking.git
 cd tracking
 ```
 
-Aşağıdaki derleme komutlarını Tracking kaynak klasöründe çalıştır. Derlenen dosyayı kullanıcıya ait bir dizine koymak yönetici yetkisi gerektirmez.
+Run the build commands below from the Tracking source directory. Installing the binary in a user-owned directory does not require administrator privileges.
 
-### macOS ve Linux
+### macOS and Linux
 
 ```sh
 mkdir -p "$HOME/.local/bin"
@@ -38,7 +40,7 @@ go build -o "$HOME/.local/bin/tracking" .
 "$HOME/.local/bin/tracking" help
 ```
 
-`tracking` komutunu her klasörden çağırmak için `~/.local/bin` dizinini `PATH` içine ekle. Önce `echo "$PATH"` ile mevcut ayarı kontrol et. Eksikse kullandığın kabuğun profil dosyasına (`zsh` için genellikle `~/.zshrc`, `bash` için genellikle `~/.bashrc`) şu satırı **bir kez** ekle ve yeni bir terminal aç:
+To run `tracking` from any directory, add `~/.local/bin` to your `PATH`. Check your current value with `echo "$PATH"` first. If the directory is missing, add the following line **once** to your shell profile (usually `~/.zshrc` for zsh or `~/.bashrc` for bash), then open a new terminal:
 
 ```sh
 export PATH="$HOME/.local/bin:$PATH"
@@ -53,55 +55,55 @@ go build -o "$bin\tracking.exe" .
 & "$bin\tracking.exe" help
 ```
 
-Komutu her dizinden kullanmak için Windows **Kullanıcı ortam değişkenleri → Path** listesine `%USERPROFILE%\.local\bin` dizinini ekle; sistem `Path` değerini değiştirme. Yeni bir PowerShell açıp `tracking help` ile doğrula. `PATH` ayarlamak istemiyorsan ikili dosyayı tam yoluyla da çağırabilirsin.
+To run the command from any directory, add `%USERPROFILE%\.local\bin` to **User environment variables → Path** in Windows; leave the system `Path` unchanged. Open a new PowerShell window and verify with `tracking help`. You can also call the binary by its full path without changing `PATH`.
 
-macOS, Linux ve Windows için aynı Go kaynağı kullanılır. Başka mimari için derleme gerektiğinde `GOOS` ve `GOARCH` ile hedefi seçebilirsin; örneğin `GOOS=linux GOARCH=arm64 go build -o tracking-linux-arm64 .`.
+The same Go source builds for macOS, Linux, and Windows. To target another architecture, set `GOOS` and `GOARCH`; for example, `GOOS=linux GOARCH=arm64 go build -o tracking-linux-arm64 .`.
 
-## İlk proje ve günlük kullanım
+## First project and everyday use
 
-Takip etmek istediğin **projenin klasöründe**:
+Run these commands **in the project directory you want to track**:
 
 ```sh
-tracking init --name "Uygulamam"
-tracking plan add --title "İlk sürüm" --goal "Kullanılabilir sürümü hazırlamak"
-tracking task add --title "Ayarlar ekranı" --description "Ekranı uygula ve çalışırken kontrol et"
+tracking init --name "My App"
+tracking plan add --title "First release" --goal "Prepare a usable release"
+tracking task add --title "Settings screen" --description "Implement and check the screen at runtime"
 tracking status
 tracking next --json
 ```
 
-`plan add` plan kimliğini, `task add` görev kimliğini yazdırır. `task add`, `--plan PLAN_ID` verilmezse son planı kullanır. Görev komutlarında tam kimlik veya benzersiz bir kimlik öneki kullanılabilir.
+`plan add` prints the plan ID, and `task add` prints the task ID. Unless you provide `--plan PLAN_ID`, `task add` uses the latest plan. Task commands accept either a full ID or a unique ID prefix.
 
 ```sh
-tracking task start TASK_ID --note "Ekran üzerinde çalışmaya başladım"
-tracking task note TASK_ID --note "Yerleşim ve durum yönetimi eklendi"
-tracking task done TASK_ID --note "Ekran çalışırken kontrol edildi"
+tracking task start TASK_ID --note "Started work on the screen"
+tracking task note TASK_ID --note "Added the layout and state handling"
+tracking task done TASK_ID --note "Checked the screen at runtime"
 tracking status --json
 ```
 
-Engel için `tracking task block TASK_ID --note "Engel"`, yeniden sıraya almak için `tracking task reopen TASK_ID --note "Neden"` kullan. `tracking task edit` ve `tracking plan edit` mevcut kayıtları düzenler; `tracking context` ise açık işleri kısa bir metin olarak özetler. Tüm komutları görmek için `tracking help` çalıştır.
+Use `tracking task block TASK_ID --note "Reason"` when work is blocked, and `tracking task reopen TASK_ID --note "Reason"` to return it to `todo`. `tracking task edit` and `tracking plan edit` update existing records. `tracking context` prints a short summary of open work. Run `tracking help` for the full command list.
 
-### Projeler nasıl ayrılır?
+### How are projects separated?
 
-`tracking init`, bulunduğun dizine `.tracking/project.json` yazar. Bu küçük dosyada projenin kimliği ve adı bulunur; planlar ile görev notları burada değil, kullanıcıya ait SQLite veri tabanındadır. Alt dizinden çalışan CLI üst dizinlerdeki proje kimliğini bulur. Her ayrı proje için kendi kökünde `tracking init` çalıştır. `tracking projects` bilinen projeleri listeler.
+`tracking init` writes `.tracking/project.json` in the current directory. This small file contains the project ID and name; plans and task notes live in the user-owned SQLite database. When the CLI runs in a subdirectory, it looks upward for the project identity. Run `tracking init` at the root of each separate project. `tracking projects` lists known projects.
 
-Panodan oluşturduğun bir projeyi klasöre bağlamak için o klasörde `tracking attach PROJECT_ID` kullan. Proje zaten başka bir kimlikle bağlıysa komut mevcut bağı sessizce değiştirmez. Aynı yerel veri tabanında projeler kimliklerine göre ayrılır.
+To link a project created in the dashboard to a local directory, run `tracking attach PROJECT_ID` in that directory. If the directory already belongs to a different project ID, the command does not silently replace the existing link. Projects in the same local database remain separate by ID.
 
-### Planı tek dosyadan içe aktar
+### Import a plan from one file
 
-`plan.json` örneği:
+Example `plan.json`:
 
 ```json
 {
-  "title": "İlk sürüm",
-  "goal": "Kullanılabilir sürümü hazırlamak",
+  "title": "First release",
+  "goal": "Prepare a usable release",
   "tasks": [
     {
-      "title": "Ayarlar ekranını uygula",
-      "description": "Arayüzü geliştir ve çalışma zamanında kontrol et"
+      "title": "Implement the settings screen",
+      "description": "Build the UI and check it at runtime"
     },
     {
-      "title": "Sürüm kontrolü yap",
-      "description": "İlgili testleri çalıştır ve sonucu not et"
+      "title": "Check the release",
+      "description": "Run relevant tests and record the result"
     }
   ]
 }
@@ -111,99 +113,100 @@ Panodan oluşturduğun bir projeyi klasöre bağlamak için o klasörde `trackin
 tracking plan import --file plan.json
 ```
 
-İçe aktarma yeni plan ve görevlerini birlikte oluşturur. Başlık ve başlığı dolu **1–500 görev** gerekir. `--file` verilmezse JSON standart girdiden okunur; `--file -` de aynı davranışı seçer.
+Import creates a new plan and its tasks together. It requires a title and **1–500 tasks**, each with a title. If `--file` is omitted, JSON is read from standard input; `--file -` does the same.
 
-## Codex ve Claude Code entegrasyonu
+## Codex and Claude Code integration
 
-İstediğin aracı, takip edeceğin projenin klasöründe kur:
+In the project you want to track, install the integration for the agents you use:
 
 ```sh
 tracking integrate codex
 tracking integrate claude
 ```
 
-Her komut ilgili `tracking` skill’ini ve oturum başlangıcında `tracking context` çalıştıran hook’u kurar. Skill, ajana planı okuma, görevleri güncelleme ve tamamlanan işi not etme akışını anlatır. Hook oturum açıldığında, devam edildiğinde veya bağlam yenilendiğinde kısa proje durumunu hatırlatır; görevleri kendi başına değiştirmez.
+Each command installs the Tracking skill and a session-start hook that runs `tracking context`. The skill tells the agent to read plans, update tasks, and note completed work. The hook reminds the agent of project status when a session starts, resumes, or refreshes its context; it does not change tasks by itself.
 
-| Araç | Proje skill’i | Proje hook’u |
+| Agent | Project skill | Project hook |
 | --- | --- | --- |
 | Codex | `.agents/skills/tracking/SKILL.md` | `.codex/hooks.json` |
 | Claude Code | `.claude/skills/tracking/SKILL.md` | `.claude/settings.json` |
 
-`--scope user` aynı dosyaları kullanıcı ev dizinindeki konumlara kurar; kullanıcı kapsamındaki hook, Tracking’e bağlanmamış dizinlerde sessizce geçer. `--no-hook` yalnız skill’i kurar. Farklı içerikli mevcut bir skill `--force` olmadan değiştirilmez. Hook komutu için `tracking` ikili dosyası ajanın ortamındaki `PATH` üzerinde olmalıdır. Codex’te yeni hook’un çalışması için onu `/hooks` içinden inceleyip güvenilir olarak işaretlemek gerekebilir. Ayrıntılar: [entegrasyon rehberi](integrations/README.md), [Codex skill belgeleri](https://learn.chatgpt.com/docs/build-skills), [Codex hook belgeleri](https://learn.chatgpt.com/docs/hooks), [Claude Code skill belgeleri](https://code.claude.com/docs/en/skills) ve [Claude Code hook belgeleri](https://code.claude.com/docs/en/hooks).
+`--scope user` installs the corresponding files in your home directory. A user-scoped hook does nothing in a directory that is not linked to a Tracking project. `--no-hook` installs only the skill. An existing skill with different content is preserved unless you pass `--force`. The `tracking` binary must be on the agent's `PATH` for the hook to run. In Codex, you may need to review and trust a new hook through `/hooks`. See the [integration guide](integrations/README.md), [Codex skill docs](https://learn.chatgpt.com/docs/build-skills), [Codex hook docs](https://learn.chatgpt.com/docs/hooks), [Claude Code skill docs](https://code.claude.com/docs/en/skills), and [Claude Code hook docs](https://code.claude.com/docs/en/hooks).
 
-Skill, ajanın bu akışı izlemesini teşvik eder; her yanıtın otomatik olarak Tracking’e yazılacağını garanti etmez. İşin sonunda `tracking status --json` ile kaydı kontrol etmek yararlıdır.
+The skill guides the agent's workflow; it does not guarantee that every response will be written to Tracking automatically. Check the record with `tracking status --json` when work ends.
 
-## Sunucuda kullanım ve erişim sınırı
+## Running on a server and access boundaries
 
-Sunucuda da aynı ikili dosya çalışır:
+The same binary runs on a server:
 
 ```sh
 tracking serve --listen 127.0.0.1:4157
 ```
 
-`serve` ön planda kaldığı için servis yöneticisiyle çalıştırmaya uygundur. HTTP pano ve API’de henüz yerleşik kimlik doğrulama yoktur; bu nedenle varsayılan dinleyici yalnız `127.0.0.1` adresine bağlanır. Uzak tarayıcı erişimi için kimliği doğrulayan bir ters vekil veya SSH tüneli kullan. Örneğin sunucu yukarıdaki komutla çalışırken kendi bilgisayarında `ssh -L 44157:127.0.0.1:4157 user@server` açıp tarayıcıda `http://127.0.0.1:44157` adresine gidebilirsin. Sunucu portunu doğrudan herkese açma.
+`serve` stays in the foreground, so a service manager can supervise it. The HTTP dashboard and API do not have built-in authentication yet; the default listener therefore binds only to `127.0.0.1`. For remote browser access, use an authenticated reverse proxy or an SSH tunnel. For example, with the server running as above, open `ssh -L 44157:127.0.0.1:4157 user@server` on your computer and visit `http://127.0.0.1:44157`. Do not expose the server port directly to the public internet.
 
-CLI şu anda yerel SQLite dosyasını kullanır; uzak Tracking sunucusuna istemci olarak bağlanıp otomatik eşitleme yapmaz. Sunucudaki projeyi CLI ile değiştirmek istiyorsan komutları sunucu ortamında, aynı `TRACKING_DB` değeriyle çalıştır. SQLite dosyasını ağ paylaşımından iki makineye aynı anda açmak yerine HTTP sunucusunu kullan.
+The CLI currently uses a local SQLite file; it does not connect to a remote Tracking server as a client or synchronize automatically. To change server-side projects through the CLI, run commands in the server environment using the same `TRACKING_DB` value. Use the HTTP server for remote browser access rather than opening one SQLite file from two machines over a network share.
 
-## Veri ve gizlilik
+## Data and privacy
 
-Tracking kendi başına bir bulut hesabı veya dış servise veri göndermez. Plan başlıkları, görev açıklamaları, notlar ve zamanlı olaylar cihazındaki SQLite dosyasında tutulur. Ajan `tracking context` veya `status` çıktısını okuduğunda bu içerik, kullandığın AI aracının oturum bağlamına da girer.
+Tracking does not send data to a cloud account or external service on its own. Plan titles, task descriptions, notes, and timestamped events stay in the SQLite file on your machine. When an agent reads `tracking context` or `status` output, that content also enters the AI tool's session context.
 
-Varsayılan veri tabanı yolu Go’nun [kullanıcı yapılandırma dizini](https://pkg.go.dev/os#UserConfigDir) altında `tracking/tracking.db` şeklindedir:
+By default, the database is at `tracking/tracking.db` under Go's [user configuration directory](https://pkg.go.dev/os#UserConfigDir):
 
-| Sistem | Varsayılan konum |
+| System | Default location |
 | --- | --- |
 | macOS | `~/Library/Application Support/tracking/tracking.db` |
-| Linux | `$XDG_CONFIG_HOME/tracking/tracking.db`; tanımlı değilse `~/.config/tracking/tracking.db` |
+| Linux | `$XDG_CONFIG_HOME/tracking/tracking.db`, or `~/.config/tracking/tracking.db` if unset |
 | Windows | `%AppData%\tracking\tracking.db` |
 
-`TRACKING_DB` ile başka bir veri tabanı dosyası seçebilirsin. `TRACKING_ACTOR` CLI olaylarında görünecek aktör adını belirler; verilmezse sistem kullanıcı adı kullanılır. CLI ve pano aynı veriyi görsün istiyorsan ikisini aynı `TRACKING_DB` ile başlat. `.tracking/project.json` yalnız proje bağıdır; veri tabanının yedeği değildir.
+Set `TRACKING_DB` to choose another database file. `TRACKING_ACTOR` sets the actor name on CLI events; otherwise the system user name is used. Start the CLI and dashboard with the same `TRACKING_DB` value if you want them to show the same data. `.tracking/project.json` is only the project link, not a backup of the database.
 
-## Sık sorulanlar
+## FAQ
 
-**Pano kapalıyken ajan görev güncelleyebilir mi?** Evet. Plan ve görev komutları SQLite’a doğrudan yazar. Tarayıcı panosu gerektiğinde açılır.
+**Can an agent update tasks while the dashboard is closed?** Yes. Plan and task commands write directly to SQLite. Open the browser dashboard only when you need it.
 
-**Tarayıcı sekmesini kapatınca veriler silinir mi?** Hayır. Veriler SQLite dosyasında kalır. Arka plan pano sürecini kapatmak istersen `tracking stop` kullan.
+**Does closing the browser tab delete data?** No. Data remains in SQLite. Use `tracking stop` if you also want to stop the background dashboard process.
 
-**`tracking` komutu bulunamıyor.** İkili dosyayı tam yoluyla çalıştırıp doğrula; sonra kurduğun dizinin `PATH` içinde olduğuna bak. Profil veya Windows kullanıcı `Path` değişikliğinden sonra yeni terminal aç.
+**`tracking` is not found.** Verify the binary using its full path, then check that its directory is on your `PATH`. Open a new terminal after changing a shell profile or the Windows user `Path`.
 
-**Yanlış proje ya da boş plan görünüyor.** Komutu doğru proje dizininde çalıştırdığını ve `.tracking/project.json` dosyasını kontrol et. Pano ile CLI için `TRACKING_DB` aynı olmalı. `tracking projects` ve `tracking status --json` ile kayıtları karşılaştır.
+**I see the wrong project or an empty plan.** Run the command from the intended project directory and check `.tracking/project.json`. The CLI and dashboard must use the same `TRACKING_DB`. Compare `tracking projects` with `tracking status --json`.
 
-**Skill veya hook çalışmıyor.** `tracking integrate codex` ya da `tracking integrate claude` komutunun yazdığı yolu kontrol et. İlgili AI oturumunu yeniden başlat, hook’un görebildiği `PATH` üzerinde `tracking` olduğundan emin ol. Codex’te `/hooks` ile yeni hook’u incele ve güven durumunu kontrol et.
+**The skill or hook is not working.** Check the path printed by `tracking integrate codex` or `tracking integrate claude`. Restart the agent session, make sure it can find `tracking` on its `PATH`, and inspect the new hook's trust status with `/hooks` in Codex.
 
-**4157 portu kullanımda.** Aynı veri tabanını kullanan sağlıklı Tracking panosu varsa `tracking` onu yeniden kullanır. Başka bir uygulama veya farklı veri tabanına bağlı Tracking bu portu tutuyorsa `tracking dashboard --listen 127.0.0.1:PORT` ile boş bir yerel port seç.
+**Port 4157 is in use.** `tracking` reuses a healthy Tracking dashboard connected to the same database. If another program or a Tracking instance using a different database holds the port, choose a free local port with `tracking dashboard --listen 127.0.0.1:PORT`.
 
-**Yeni sürümü derledim ama panoda değişiklik görünmüyor.** Açık arka plan süreci önceki ikili dosyayı çalıştırıyor olabilir. `tracking stop` ardından `tracking` çalıştır.
+**I rebuilt Tracking, but the dashboard has not changed.** The existing background process may still be running the earlier binary. Run `tracking stop`, then `tracking`.
 
-## AI’ye kopyalanacak kurulum isteği
+## Copy-paste setup prompt for an AI agent
 
-Aşağıdaki metni **takip etmek istediğin proje klasörü açıkken** Codex veya Claude Code’a gönder. Metin, hangi ajanları kullandığını sorar ve buna göre entegrasyon kurar:
+Send the following prompt to Codex or Claude Code **with the project you want to track open**. It asks which agents you use, then installs only those integrations:
 
 ```text
-Bulunduğum projede Tracking kullanmak istiyorum. Önce bana Codex, Claude Code
-veya ikisini birden kullanıp kullanmadığımı sor; cevabıma göre yalnız seçtiklerimin
-entegrasyonunu kur.
+I want to use Tracking in the current project. First ask whether I use Codex,
+Claude Code, or both; install integrations only for the agents I choose.
 
-Makinede tracking komutu var mı kontrol et. Yoksa açık çalışma alanında Tracking
-kaynak kodu var mı bak; yoksa https://github.com/ozguryalim/tracking.git
-deposunu kullanıcıya ait uygun bir kaynak klasörüne klonla. Git ve gereken Go
-sürümünü kontrol et; eksikse işletim sistemime uygun güvenilir kurulum yolunu
-kullan. Kaynak klasöründe ikili dosyayı derle ve yönetici yetkisi gerektirmeyen
-kullanıcı dizinine kur. Mevcut bir ikili dosya varsa yolunu ve ne olduğunu
-kontrol et; ilgisiz bir programın üzerine yazma.
+Check whether the tracking command is available. If it is not, look for the
+Tracking source in the open workspace. If it is not there, clone
+https://github.com/ozguryalim/tracking.git into a suitable user-owned source
+directory. Check for Git and the required Go version; if either is missing,
+use a trustworthy installation method appropriate for my operating system.
+Build the binary from the source directory and install it in a user-owned
+directory without administrator privileges. If a binary already exists,
+check its path and identity; do not overwrite an unrelated program.
 
-Kurulum dizinini PATH'e güvenli biçimde ekle: mevcut ayarı koru, tekrar eden
-satır oluşturma, değiştireceğin kabuk profilinin yedeğini al; Windows'ta yalnız
-kullanıcı Path değerini düzenle. Yeni terminalde tracking help çalıştığını
-doğrula.
+Add the installation directory to PATH safely: preserve the existing value,
+avoid duplicate entries, and back up any shell profile you change. On
+Windows, change only the user Path. Verify that tracking help works in a new
+terminal.
 
-Ardından bu oturumun başlangıçtaki proje klasörüne dön. Mevcut
-.tracking/project.json bağını koruyarak tracking init --name ile projeyi başlat;
-seçtiğim araçlar için tracking integrate çalıştır ve skill ile hook dosyalarını
-doğrula. Codex hook'u için /hooks güven adımını bana açıkça belirt.
+Return to the project directory where this session started. Preserve any
+existing .tracking/project.json link while initializing the project with
+tracking init --name. Run tracking integrate for the agents I selected and
+verify the skill and hook files. Tell me explicitly that I need to review
+and trust a new Codex hook through /hooks.
 
-Sonunda tracking komutunu çalıştırıp panoyu aç. Kurulan ikili dosya yolunu,
-proje kimliğini, veri tabanı konumunu ve çalıştırmam gereken ilk üç komutu
-kısaca yaz. Bir adım başarısız olursa nedenini söyle; ilgisiz yapılandırmayı
-değiştirme.
+Finally, run tracking to open the dashboard. Briefly report the installed
+binary path, project ID, database location, and the first three commands
+I should use. If a step fails, explain why. Leave unrelated configuration
+alone.
 ```
