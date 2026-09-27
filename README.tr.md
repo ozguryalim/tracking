@@ -73,6 +73,26 @@ Komutu her dizinden kullanmak için Windows **Kullanıcı ortam değişkenleri �
 
 macOS, Linux ve Windows için aynı Go kaynağı kullanılır. Başka mimari için derleme gerektiğinde `GOOS` ve `GOARCH` ile hedefi seçebilirsin; örneğin `GOOS=linux GOARCH=arm64 go build -o tracking-linux-arm64 .`.
 
+## Güncellemeler
+
+Yayımlanan `vMAJOR.MINOR.PATCH` etiketleri, platform ikili dosyaları ve sağlama toplamlarıyla birlikte [GitHub Release](https://github.com/ozguryalim/tracking/releases) oluşturur. Kurulu sürümü ve yeni sürümü istediğinde kontrol edebilirsin:
+
+```sh
+tracking version
+tracking update check
+```
+
+`tracking` veya `tracking dashboard` etkileşimli terminalden açıldığında en fazla 30 dakikada bir kontrol yapar. Yeni sürüm varsa sürüm başına yalnız bir kısa bildirim stderr üzerinde görünür; ağ hataları sessizce geçilir. Ajan hook'ları, JSON komutları ve arka plan sunucuları bildirim göstermez. Kendiliğinden kurulum yapılmaz.
+
+macOS ve Linux'ta `tracking update`, sürüm ikili dosyasını indirip mevcut dosyanın yerine koymadan önce onay ister. Açıkça istediğin gözetimsiz kurulum için `tracking update --yes` kullan. İndirilen dosya Release sağlama toplamıyla doğrulanır. Windows'ta komut, elle değiştirme için indirme bağlantısını verir. Pano zaten açıksa güncellemeden sonra `tracking stop` verip yeniden aç. Doğrudan kaynak koddan derlenen ikili dosyalar `dev` sürümünü gösterir; sürümleri `tracking update check` ile kontrol edebilir veya otomatik bildirim için Release ikili dosyası kurabilirsin.
+
+Bakım için kod `main` dalındayken kararlı bir sürüm etiketi gönder; yayın akışı ikili dosyaları üretip Release oluşturur:
+
+```sh
+git tag -a v0.1.2 -m "v0.1.2"
+git push origin v0.1.2
+```
+
 ## İlk proje ve günlük kullanım
 
 Takip etmek istediğin **projenin klasöründe**:
@@ -94,7 +114,16 @@ tracking task done TASK_ID --note "Ekran çalışırken kontrol edildi"
 tracking status --json
 ```
 
-Engel için `tracking task block TASK_ID --note "Engel"`, yeniden sıraya almak için `tracking task reopen TASK_ID --note "Neden"` kullan. `tracking task edit` ve `tracking plan edit` mevcut kayıtları düzenler; `tracking context` ise açık işleri kısa bir metin olarak özetler. Tüm komutları görmek için `tracking help` çalıştır.
+Engel için `tracking task block TASK_ID --note "Engel"`, yeniden sıraya almak için `tracking task reopen TASK_ID --note "Neden"` kullan. `tracking context` açık işleri kısa bir metin olarak özetler.
+
+Tek bir kaydı JSON olarak görmek için `tracking plan show PLAN_ID` (bağlı görevleriyle) veya `tracking task show TASK_ID` (geçmişiyle) kullan. Düzenleme komutları yalnız verdiğin alanları değiştirir:
+
+```sh
+tracking plan edit PLAN_ID --title "Güncel plan" --goal "Güncel hedef"
+tracking task edit TASK_ID --title "Güncel görev" --description "Güncel iş" --plan PLAN_ID --note "Değişiklik nedeni"
+```
+
+Bir görevi kalıcı olarak silmek için `tracking task delete TASK_ID --yes` kullan. `tracking plan delete PLAN_ID --yes` planı **ve tüm görevlerini** kalıcı olarak siler. Silme, ilgili geçmişi kaldırır ve özet bir silme olayı bırakır. Önce hedefi `show` ile kontrol et; silme için `--yes` gerekir. Tüm komutları görmek için `tracking help` çalıştır.
 
 ### Projeler nasıl ayrılır?
 

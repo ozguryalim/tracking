@@ -549,6 +549,51 @@ func (s *Store) UpdatePlan(ctx context.Context, id, title, goal, actor string) (
 	return plan, nil
 }
 
+func (s *Store) DeletePlan(ctx context.Context, id, actor string) (int, error) {
+	plan, err := s.GetPlan(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	var taskCount int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM tasks WHERE plan_id = ?`, id).Scan(&taskCount); err != nil {
+		return 0, err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM events WHERE task_id IN (SELECT id FROM tasks WHERE plan_id = ?)`, id); err != nil {
+		return 0, err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM events WHERE plan_id = ? AND task_id IS NULL`, id); err != nil {
+		return 0, err
+	}
+	result, err := tx.ExecContext(ctx, `DELETE FROM plans WHERE id = ? AND updated_at = ?`, id, plan.UpdatedAt)
+	if err != nil {
+		return 0, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if affected != 1 {
+		return 0, errConflict
+	}
+	at := nowUTC()
+	note := fmt.Sprintf("Deleted plan %s: %s (%d tasks)", plan.ID, plan.Title, taskCount)
+	if err := insertEvent(ctx, tx, plan.ProjectID, "", "", "plan_deleted", note, actor, at); err != nil {
+		return 0, err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE projects SET updated_at = ? WHERE id = ?`, at, plan.ProjectID); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return taskCount, nil
+}
+
 func (s *Store) LatestPlanID(ctx context.Context, projectID string) (string, error) {
 	var id string
 	err := s.db.QueryRowContext(ctx, `SELECT id FROM plans WHERE project_id = ? ORDER BY created_at DESC LIMIT 1`, projectID).Scan(&id)
@@ -566,6 +611,56 @@ func (s *Store) GetPlan(ctx context.Context, id string) (Plan, error) {
 		return Plan{}, errNotFound
 	}
 	return plan, err
+}
+
+func (s *Store) ResolvePlanID(ctx context.Context, prefix string) (string, error) {
+	if strings.TrimSpace(prefix) == "" {
+		return "", fmt.Errorf("%w: plan ID is required", errValidation)
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT id FROM plans WHERE substr(id, 1, length(?)) = ? LIMIT 2`, prefix, prefix)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return "", err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+	if len(ids) == 0 {
+		return "", errNotFound
+	}
+	if len(ids) > 1 {
+		return "", errAmbiguous
+	}
+	return ids[0], nil
+}
+
+func (s *Store) PlanTasks(ctx context.Context, planID string) ([]Task, error) {
+	if _, err := s.GetPlan(ctx, planID); err != nil {
+		return nil, err
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT id, project_id, plan_id, title, description, status,
+		created_at, started_at, completed_at, updated_at FROM tasks WHERE plan_id = ? ORDER BY created_at, id`, planID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	tasks := []Task{}
+	for rows.Next() {
+		task, err := scanTask(rows)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, task)
+	}
+	return tasks, rows.Err()
 }
 
 func (s *Store) CreateTask(ctx context.Context, projectID, planID, title, description, actor string) (Task, error) {
@@ -634,6 +729,9 @@ func scanTask(row taskScanner) (Task, error) {
 }
 
 func (s *Store) ResolveTaskID(ctx context.Context, prefix string) (string, error) {
+	if strings.TrimSpace(prefix) == "" {
+		return "", fmt.Errorf("%w: task ID is required", errValidation)
+	}
 	rows, err := s.db.QueryContext(ctx, `SELECT id FROM tasks WHERE substr(id, 1, length(?)) = ? LIMIT 2`, prefix, prefix)
 	if err != nil {
 		return "", err
@@ -666,6 +764,41 @@ func (s *Store) GetTask(ctx context.Context, id string) (Task, error) {
 		return Task{}, errNotFound
 	}
 	return task, err
+}
+
+func (s *Store) DeleteTask(ctx context.Context, id, actor string) error {
+	task, err := s.GetTask(ctx, id)
+	if err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM events WHERE task_id = ?`, id); err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `DELETE FROM tasks WHERE id = ? AND updated_at = ?`, id, task.UpdatedAt)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return errConflict
+	}
+	at := nowUTC()
+	note := fmt.Sprintf("Deleted task %s: %s", task.ID, task.Title)
+	if err := insertEvent(ctx, tx, task.ProjectID, task.PlanID, "", "task_deleted", note, actor, at); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE projects SET updated_at = ? WHERE id = ?`, at, task.ProjectID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func validStatus(status string) bool {

@@ -69,6 +69,26 @@ To run the command from any directory, add `%USERPROFILE%\.local\bin` to **User 
 
 The same Go source builds for macOS, Linux, and Windows. To target another architecture, set `GOOS` and `GOARCH`; for example, `GOOS=linux GOARCH=arm64 go build -o tracking-linux-arm64 .`.
 
+## Updates
+
+Published `vMAJOR.MINOR.PATCH` tags create [GitHub Releases](https://github.com/ozguryalim/tracking/releases) with platform binaries and checksums. Check your installed version and look for a release at any time:
+
+```sh
+tracking version
+tracking update check
+```
+
+When `tracking` or `tracking dashboard` starts from an interactive terminal, it checks at most once every 30 minutes. A newer release produces one short notice on stderr per version; network failures are silent. Agent hooks, JSON commands, and background servers do not display notices. Nothing installs automatically.
+
+On macOS and Linux, `tracking update` asks before downloading and replacing the current release binary. Use `tracking update --yes` when you explicitly want a non-interactive install. The download is checked against the release checksum. On Windows, the command gives the release download link for manual replacement. After updating, run `tracking stop` and reopen the dashboard if it was already running. Binaries built directly from source report `dev`; use `tracking update check` to inspect releases, or install a release binary to receive automatic notices.
+
+For maintainers, push a stable version tag after the code is on `main` to build and publish the release:
+
+```sh
+git tag -a v0.1.2 -m "v0.1.2"
+git push origin v0.1.2
+```
+
 ## First project and everyday use
 
 Run these commands **in the project directory you want to track**:
@@ -90,7 +110,16 @@ tracking task done TASK_ID --note "Checked the screen at runtime"
 tracking status --json
 ```
 
-Use `tracking task block TASK_ID --note "Reason"` when work is blocked, and `tracking task reopen TASK_ID --note "Reason"` to return it to `todo`. `tracking task edit` and `tracking plan edit` update existing records. `tracking context` prints a short summary of open work. Run `tracking help` for the full command list.
+Use `tracking task block TASK_ID --note "Reason"` when work is blocked, and `tracking task reopen TASK_ID --note "Reason"` to return it to `todo`. `tracking context` prints a short summary of open work.
+
+Inspect one record as JSON with `tracking plan show PLAN_ID` (including its tasks) or `tracking task show TASK_ID` (including its history). Edit only the fields you provide:
+
+```sh
+tracking plan edit PLAN_ID --title "Updated plan" --goal "Updated outcome"
+tracking task edit TASK_ID --title "Updated task" --description "Updated work" --plan PLAN_ID --note "Why it changed"
+```
+
+To permanently delete a task, use `tracking task delete TASK_ID --yes`. To permanently delete a plan **and all its tasks**, use `tracking plan delete PLAN_ID --yes`. Deletion removes the related history and leaves a summary event. Inspect the target with `show` first; deletion requires `--yes`. Run `tracking help` for the full command list.
 
 ### How are projects separated?
 

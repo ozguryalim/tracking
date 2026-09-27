@@ -13,4 +13,6 @@ Use Tracking as the shared project plan and progress record. Keep the plan and t
 4. When the work is complete, run `tracking task done ID --note "What was completed"`. If work cannot proceed, run `tracking task block ID --note "What is needed"`.
 5. Check `tracking status --json` before reporting overall completion. `tracking dashboard` opens the visual project view when useful.
 
+Use `tracking plan show ID` to inspect a plan and its tasks as JSON, or `tracking task show ID` for a task and its history. Update only the intended fields with `tracking plan edit ID [--title TITLE] [--goal GOAL]` or `tracking task edit ID [--title TITLE] [--description TEXT] [--plan PLAN_ID] [--note TEXT]`. To permanently delete a task, run `tracking task delete ID --yes`. To permanently delete a plan and all its tasks, run `tracking plan delete ID --yes`. Inspect the target first; deletion removes related history and leaves a summary event. Run `tracking help` for the complete command list.
+
 Tracking records timestamps for task and note changes automatically. Keep task descriptions and completion notes specific enough for the next agent session to continue accurately. Do not require separate approval or evidence to update a task.

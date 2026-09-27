@@ -32,7 +32,11 @@ func main() {
 
 func run(args []string, out, errOut io.Writer) error {
 	if len(args) == 0 {
-		return runDashboard(nil, out, errOut)
+		if err := runDashboard(nil, out, errOut); err != nil {
+			return err
+		}
+		maybeNotifyUpdate(errOut)
+		return nil
 	}
 	if args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
 		printUsage(out)
@@ -42,10 +46,20 @@ func run(args []string, out, errOut io.Writer) error {
 		return runIntegrate(args[1:], out, errOut)
 	}
 	if args[0] == "dashboard" {
-		return runDashboard(args[1:], out, errOut)
+		if err := runDashboard(args[1:], out, errOut); err != nil {
+			return err
+		}
+		maybeNotifyUpdate(errOut)
+		return nil
 	}
 	if args[0] == "stop" {
 		return runStop(args[1:], out, errOut)
+	}
+	if args[0] == "version" {
+		return runVersion(args[1:], out)
+	}
+	if args[0] == "update" {
+		return runUpdate(args[1:], out, errOut)
 	}
 	path, err := databasePath()
 	if err != nil {
@@ -95,9 +109,13 @@ Usage:
   tracking projects
   tracking plan add --title TITLE [--goal GOAL]
   tracking plan import --file plan.json
-  tracking plan edit ID --title TITLE [--goal GOAL]
+  tracking plan show ID
+  tracking plan edit ID [--title TITLE] [--goal GOAL]
+  tracking plan delete ID --yes
   tracking task add --title TITLE [--description TEXT] [--plan PLAN_ID]
-  tracking task edit ID [--title TITLE] [--description TEXT] [--plan PLAN_ID]
+  tracking task show ID
+  tracking task edit ID [--title TITLE] [--description TEXT] [--plan PLAN_ID] [--note TEXT]
+  tracking task delete ID --yes
   tracking task start ID [--note TEXT]
   tracking task done ID --note TEXT
   tracking task block ID --note TEXT
@@ -106,11 +124,17 @@ Usage:
   tracking status [--json]
   tracking next [--json]
   tracking context
+  tracking version
+  tracking update check
+  tracking update [--yes]
   tracking dashboard [--listen 127.0.0.1:4157]
   tracking stop [--listen 127.0.0.1:4157]
   tracking serve [--listen 127.0.0.1:4157]
   tracking integrate codex|claude [--scope project|user] [--no-hook]
 
+Show commands output JSON. Edit requires at least one field flag.
+Deletion removes related history and requires --yes.
+Plan deletion also deletes its tasks.
 Set TRACKING_DB to choose the database file and TRACKING_ACTOR to label changes.`)
 }
 
@@ -281,7 +305,7 @@ func runAttach(ctx context.Context, store *Store, args []string, out io.Writer) 
 
 func runPlan(ctx context.Context, store *Store, args []string, out, errOut io.Writer) error {
 	if len(args) == 0 {
-		return fmt.Errorf("plan subcommand required: add or edit")
+		return fmt.Errorf("plan subcommand required: add, import, show, edit, or delete")
 	}
 	switch args[0] {
 	case "add":
@@ -331,26 +355,62 @@ func runPlan(ctx context.Context, store *Store, args []string, out, errOut io.Wr
 		}
 		fmt.Fprintf(out, "Imported plan %s with %d tasks: %s\n", plan.ID, len(tasks), plan.Title)
 		return nil
-	case "edit":
+	case "show", "edit", "delete":
 		if len(args) < 2 {
-			return fmt.Errorf("plan edit requires an ID")
+			return fmt.Errorf("plan %s requires an ID", args[0])
 		}
 		manifest, err := currentProject(ctx, store)
 		if err != nil {
 			return err
 		}
-		previous, err := store.GetPlan(ctx, args[1])
+		id, err := store.ResolvePlanID(ctx, args[1])
+		if err != nil {
+			return err
+		}
+		previous, err := store.GetPlan(ctx, id)
 		if err != nil {
 			return err
 		}
 		if previous.ProjectID != manifest.ID {
 			return fmt.Errorf("%w: plan belongs to another project", errValidation)
 		}
+		if args[0] == "show" {
+			if len(args) != 2 {
+				return fmt.Errorf("plan show accepts only an ID")
+			}
+			tasks, err := store.PlanTasks(ctx, id)
+			if err != nil {
+				return err
+			}
+			return writeJSON(out, map[string]any{"plan": previous, "tasks": tasks})
+		}
+		if args[0] == "delete" {
+			flags := newFlags("plan delete", errOut)
+			yes := flags.Bool("yes", false, "confirm permanent deletion")
+			if err := flags.Parse(args[2:]); err != nil {
+				return err
+			}
+			if !*yes || flags.NArg() != 0 {
+				return fmt.Errorf("plan delete requires ID --yes; this also deletes the plan's tasks")
+			}
+			count, err := store.DeletePlan(ctx, id, actorName())
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(out, "Deleted plan %s and %d tasks: %s\n", id, count, previous.Title)
+			return nil
+		}
 		flags := newFlags("plan edit", errOut)
 		title := flags.String("title", previous.Title, "plan title")
 		goal := flags.String("goal", previous.Goal, "plan goal")
 		if err := flags.Parse(args[2:]); err != nil {
 			return err
+		}
+		if flags.NArg() != 0 {
+			return fmt.Errorf("plan edit accepts only one ID and flags")
+		}
+		if flags.NFlag() == 0 {
+			return fmt.Errorf("plan edit requires --title or --goal")
 		}
 		plan, err := store.UpdatePlan(ctx, previous.ID, *title, *goal, actorName())
 		if err != nil {
@@ -404,6 +464,31 @@ func runTask(ctx context.Context, store *Store, args []string, out, errOut io.Wr
 	if currentTask.ProjectID != manifest.ID {
 		return fmt.Errorf("%w: task belongs to another project", errValidation)
 	}
+	if args[0] == "show" {
+		if len(args) != 2 {
+			return fmt.Errorf("task show accepts only an ID")
+		}
+		events, err := store.TaskEvents(ctx, id)
+		if err != nil {
+			return err
+		}
+		return writeJSON(out, map[string]any{"task": currentTask, "events": events})
+	}
+	if args[0] == "delete" {
+		flags := newFlags("task delete", errOut)
+		yes := flags.Bool("yes", false, "confirm permanent deletion")
+		if err := flags.Parse(args[2:]); err != nil {
+			return err
+		}
+		if !*yes || flags.NArg() != 0 {
+			return fmt.Errorf("task delete requires ID --yes")
+		}
+		if err := store.DeleteTask(ctx, id, actorName()); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Deleted task %s: %s\n", id, currentTask.Title)
+		return nil
+	}
 	flags := newFlags("task "+args[0], errOut)
 	note := flags.String("note", "", "work note")
 	title := flags.String("title", "", "task title")
@@ -411,6 +496,12 @@ func runTask(ctx context.Context, store *Store, args []string, out, errOut io.Wr
 	planID := flags.String("plan", "", "plan ID")
 	if err := flags.Parse(args[2:]); err != nil {
 		return err
+	}
+	if flags.NArg() != 0 {
+		return fmt.Errorf("task %s accepts only one ID and flags", args[0])
+	}
+	if args[0] == "edit" && flags.NFlag() == 0 {
+		return fmt.Errorf("task edit requires --title, --description, --plan, or --note")
 	}
 	var task Task
 	switch args[0] {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -231,5 +232,221 @@ func TestTaskIDPrefixTreatsWildcardCharactersLiterally(t *testing.T) {
 		if resolved, err := store.ResolveTaskID(context.Background(), wildcard); err == nil {
 			t.Errorf("wildcard %q unexpectedly resolved task %q", wildcard, resolved)
 		}
+	}
+	for _, empty := range []string{"", " "} {
+		if _, err := store.ResolveTaskID(context.Background(), empty); !errors.Is(err, errValidation) {
+			t.Errorf("empty prefix %q: got %v, want validation error", empty, err)
+		}
+	}
+}
+
+func TestPlanIDPrefixAndPlanTasks(t *testing.T) {
+	store, _ := testStore(t)
+	ctx := context.Background()
+	project := mustProject(t, store, "Plans")
+	first := mustPlan(t, store, project.ID)
+	second := mustPlan(t, store, project.ID)
+	firstTask := mustTask(t, store, project.ID, first.ID, "First task")
+	_ = mustTask(t, store, project.ID, second.ID, "Second task")
+	resolved, err := store.ResolvePlanID(ctx, first.ID[:len(first.ID)-1])
+	if err != nil || resolved != first.ID {
+		t.Fatalf("plan prefix: id=%q err=%v", resolved, err)
+	}
+	if _, err := store.ResolvePlanID(ctx, "pl-"); !errors.Is(err, errAmbiguous) {
+		t.Fatalf("shared plan prefix: got %v, want ambiguity", err)
+	}
+	for _, prefix := range []string{"", " ", "%", "pl_"} {
+		if _, err := store.ResolvePlanID(ctx, prefix); err == nil {
+			t.Errorf("invalid plan prefix %q resolved", prefix)
+		}
+	}
+	tasks, err := store.PlanTasks(ctx, first.ID)
+	if err != nil || len(tasks) != 1 || tasks[0].ID != firstTask.ID {
+		t.Fatalf("plan tasks: tasks=%+v err=%v", tasks, err)
+	}
+	if _, err := store.PlanTasks(ctx, "missing"); !errors.Is(err, errNotFound) {
+		t.Fatalf("missing plan tasks: got %v, want not found", err)
+	}
+}
+
+func TestDeleteTaskRemovesHistoryAndPreservesOtherRecords(t *testing.T) {
+	store, _ := testStore(t)
+	ctx := context.Background()
+	project := mustProject(t, store, "First")
+	plan := mustPlan(t, store, project.ID)
+	target := mustTask(t, store, project.ID, plan.ID, "Delete me")
+	kept := mustTask(t, store, project.ID, plan.ID, "Keep me")
+	otherProject := mustProject(t, store, "Second")
+	otherPlan := mustPlan(t, store, otherProject.ID)
+	otherTask := mustTask(t, store, otherProject.ID, otherPlan.ID, "Other project")
+	if _, err := store.AddNote(ctx, target.ID, "Old work", "test"); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.TaskEvents(ctx, target.ID)
+	if err != nil || len(before) < 2 {
+		t.Fatalf("target history: events=%+v err=%v", before, err)
+	}
+	if err := store.DeleteTask(ctx, target.ID, "agent"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.GetTask(ctx, target.ID); !errors.Is(err, errNotFound) {
+		t.Fatalf("deleted task: got %v, want not found", err)
+	}
+	if _, err := store.GetTask(ctx, kept.ID); err != nil {
+		t.Fatalf("other task was deleted: %v", err)
+	}
+	if _, err := store.GetTask(ctx, otherTask.ID); err != nil {
+		t.Fatalf("other project task was deleted: %v", err)
+	}
+	detail, err := store.ProjectDetail(ctx, project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detail.Project.TaskCount != 1 || len(detail.Tasks) != 1 || detail.Tasks[0].ID != kept.ID {
+		t.Fatalf("task count after deletion: %+v", detail)
+	}
+	var deletion *Event
+	for i := range detail.Events {
+		event := &detail.Events[i]
+		for _, old := range before {
+			if event.ID == old.ID {
+				t.Fatalf("deleted task history survived: %+v", *event)
+			}
+		}
+		if event.Kind == "task_deleted" {
+			deletion = event
+		}
+	}
+	if deletion == nil || deletion.TaskID != "" || deletion.PlanID != plan.ID || deletion.Actor != "agent" ||
+		!strings.Contains(deletion.Note, target.ID) || !strings.Contains(deletion.Note, target.Title) ||
+		detail.Project.UpdatedAt != deletion.OccurredAt {
+		t.Fatalf("task deletion event or project timestamp: event=%+v project=%+v", deletion, detail.Project)
+	}
+	if _, err := store.TaskEvents(ctx, kept.ID); err != nil {
+		t.Fatalf("other task history lost: %v", err)
+	}
+	if err := store.DeleteTask(ctx, target.ID, "agent"); !errors.Is(err, errNotFound) {
+		t.Fatalf("delete missing task: got %v, want not found", err)
+	}
+}
+
+func TestDeletePlanRemovesOwnedHistoryAndPreservesMovedTask(t *testing.T) {
+	store, _ := testStore(t)
+	ctx := context.Background()
+	project := mustProject(t, store, "First")
+	target := mustPlan(t, store, project.ID)
+	keptPlan := mustPlan(t, store, project.ID)
+	first := mustTask(t, store, project.ID, target.ID, "Delete first")
+	second := mustTask(t, store, project.ID, target.ID, "Delete second")
+	moved := mustTask(t, store, project.ID, target.ID, "Move me")
+	kept := mustTask(t, store, project.ID, keptPlan.ID, "Keep me")
+	otherProject := mustProject(t, store, "Second")
+	otherPlan := mustPlan(t, store, otherProject.ID)
+	otherTask := mustTask(t, store, otherProject.ID, otherPlan.ID, "Other project")
+	if _, err := store.AddNote(ctx, first.ID, "Old work", "test"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.PatchTask(ctx, moved.ID, TaskPatch{PlanID: &keptPlan.ID}, "test"); err != nil {
+		t.Fatal(err)
+	}
+	movedHistory, err := store.TaskEvents(ctx, moved.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstHistory, err := store.TaskEvents(ctx, first.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	count, err := store.DeletePlan(ctx, target.ID, "agent")
+	if err != nil || count != 2 {
+		t.Fatalf("delete plan: count=%d err=%v", count, err)
+	}
+	if _, err := store.GetPlan(ctx, target.ID); !errors.Is(err, errNotFound) {
+		t.Fatalf("deleted plan: got %v, want not found", err)
+	}
+	for _, id := range []string{first.ID, second.ID} {
+		if _, err := store.GetTask(ctx, id); !errors.Is(err, errNotFound) {
+			t.Fatalf("deleted plan task %s: got %v, want not found", id, err)
+		}
+	}
+	for _, id := range []string{moved.ID, kept.ID, otherTask.ID} {
+		if _, err := store.GetTask(ctx, id); err != nil {
+			t.Fatalf("unrelated task %s was deleted: %v", id, err)
+		}
+	}
+	detail, err := store.ProjectDetail(ctx, project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(detail.Plans) != 1 || detail.Plans[0].ID != keptPlan.ID || detail.Project.TaskCount != 2 {
+		t.Fatalf("project records after plan deletion: %+v", detail)
+	}
+	var deletion *Event
+	for i := range detail.Events {
+		event := &detail.Events[i]
+		if event.PlanID == target.ID {
+			t.Fatalf("deleted plan association survived: %+v", *event)
+		}
+		for _, old := range firstHistory {
+			if event.ID == old.ID {
+				t.Fatalf("deleted task history survived: %+v", *event)
+			}
+		}
+		if event.Kind == "plan_deleted" {
+			deletion = event
+		}
+	}
+	if deletion == nil || deletion.PlanID != "" || deletion.TaskID != "" || deletion.Actor != "agent" ||
+		!strings.Contains(deletion.Note, target.ID) || !strings.Contains(deletion.Note, target.Title) ||
+		!strings.Contains(deletion.Note, "2 tasks") || detail.Project.UpdatedAt != deletion.OccurredAt {
+		t.Fatalf("plan deletion event or project timestamp: event=%+v project=%+v", deletion, detail.Project)
+	}
+	afterMoved, err := store.TaskEvents(ctx, moved.ID)
+	if err != nil || len(afterMoved) != len(movedHistory) {
+		t.Fatalf("moved task history: before=%+v after=%+v err=%v", movedHistory, afterMoved, err)
+	}
+	if count, err := store.DeletePlan(ctx, target.ID, "agent"); count != 0 || !errors.Is(err, errNotFound) {
+		t.Fatalf("delete missing plan: count=%d err=%v", count, err)
+	}
+}
+
+func TestDeleteRollsBackWhenDatabaseRejectsIt(t *testing.T) {
+	store, _ := testStore(t)
+	ctx := context.Background()
+	project := mustProject(t, store, "Rollback")
+	plan := mustPlan(t, store, project.ID)
+	task := mustTask(t, store, project.ID, plan.ID, "Keep history")
+	if _, err := store.AddNote(ctx, task.ID, "Existing note", "test"); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.TaskEvents(ctx, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.db.Exec(`CREATE TRIGGER reject_task_delete BEFORE DELETE ON tasks BEGIN SELECT RAISE(ABORT, 'test failure'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.DeleteTask(ctx, task.ID, "agent"); err == nil {
+		t.Fatal("task deletion unexpectedly succeeded")
+	}
+	after, err := store.TaskEvents(ctx, task.ID)
+	if err != nil || len(after) != len(before) {
+		t.Fatalf("task history did not roll back: before=%+v after=%+v err=%v", before, after, err)
+	}
+	if _, err := store.db.Exec(`DROP TRIGGER reject_task_delete`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.db.Exec(`CREATE TRIGGER reject_plan_delete BEFORE DELETE ON plans BEGIN SELECT RAISE(ABORT, 'test failure'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.DeletePlan(ctx, plan.ID, "agent"); err == nil {
+		t.Fatal("plan deletion unexpectedly succeeded")
+	}
+	after, err = store.TaskEvents(ctx, task.ID)
+	if err != nil || len(after) != len(before) {
+		t.Fatalf("plan deletion lost task history: before=%+v after=%+v err=%v", before, after, err)
+	}
+	if _, err := store.GetPlan(ctx, plan.ID); err != nil {
+		t.Fatalf("plan was deleted despite rollback: %v", err)
 	}
 }
