@@ -2,7 +2,7 @@
 
 [English](README.md) | Türkçe
 
-**AI ajanlarıyla yaptığın planı proje proje kaydet, yapılan işi tarihli notlarla takip et.** Tracking; Codex ve Claude Code’un kullanabileceği bir CLI, yerel SQLite veri tabanı ve sade bir tarayıcı panosu sunar. Ajan plan ve görevleri doğrudan oluşturabilir, düzenleyebilir, `todo` / `doing` / `blocked` / `done` durumlarını değiştirebilir. Ayrı bir onay kapısı veya zorunlu kanıt adımı yoktur.
+**AI ajanlarıyla yaptığın planı proje proje kaydet, yapılan işi tarihli notlarla takip et.** Tracking; Codex ve Claude Code’un kullanabileceği bir CLI, yerel SQLite veri tabanı ve sade bir tarayıcı panosu sunar. Ajan plan ve görevleri doğrudan oluşturabilir, düzenleyebilir, `todo` / `doing` / `review` / `blocked` / `done` durumlarını değiştirebilir. Tracking’in kendine ait bir onay kapısı yoktur; birlikte gelen ajan skill’i, ajanlardan projenin kendi bitiş tanımına uymalarını ve biten ama onay bekleyen iş için `review` kullanmalarını ister.
 
 CLI ile pano aynı veriyi kullanır. Her plan ve görev kendi projesine bağlıdır; görev değişiklikleri ve notlar aktör adı ile UTC zaman damgası taşıyan olay geçmişine yazılır. `status --json` ve `next --json` gibi komutlar ajanların durum okumasına uygundur.
 
@@ -84,7 +84,7 @@ tracking update check
 
 `tracking` veya `tracking dashboard` etkileşimli terminalden açıldığında en fazla 30 dakikada bir kontrol yapar. Yeni sürüm varsa sürüm başına yalnız bir kısa bildirim stderr üzerinde görünür; ağ hataları sessizce geçilir. Ajan hook'ları, JSON komutları ve arka plan sunucuları bildirim göstermez. Kendiliğinden kurulum yapılmaz.
 
-macOS ve Linux'ta `tracking update`, sürüm ikili dosyasını indirip mevcut dosyanın yerine koymadan önce onay ister. Açıkça istediğin gözetimsiz kurulum için `tracking update --yes` kullan. İndirilen dosya Release sağlama toplamıyla doğrulanır. Windows'ta komut, elle değiştirme için indirme bağlantısını verir. Pano zaten açıksa güncellemeden sonra `tracking stop` verip yeniden aç. Doğrudan kaynak koddan derlenen ikili dosyalar `dev` sürümünü gösterir; sürümleri `tracking update check` ile kontrol edebilir veya otomatik bildirim için Release ikili dosyası kurabilirsin.
+macOS ve Linux'ta `tracking update`, sürüm ikili dosyasını indirip mevcut dosyanın yerine koymadan önce onay ister. Açıkça istediğin gözetimsiz kurulum için `tracking update --yes` kullan. İndirilen dosya Release sağlama toplamıyla doğrulanır. Windows'ta komut, elle değiştirme için indirme bağlantısını verir. Pano zaten açıksa güncellemeden sonra `tracking stop` verip yeniden aç. `review` durumunu destekleyen sürümler mevcut veri tabanını ilk açışta kendiliğinden yükseltir; görevler ve geçmişleri korunur. Doğrudan kaynak koddan derlenen ikili dosyalar `dev` sürümünü gösterir; sürümleri `tracking update check` ile kontrol edebilir veya otomatik bildirim için Release ikili dosyası kurabilirsin.
 
 Bakım için kod `main` dalındayken kararlı bir sürüm etiketi gönder; yayın akışı ikili dosyaları üretip Release oluşturur:
 
@@ -114,7 +114,7 @@ tracking task done TASK_ID --note "Ekran çalışırken kontrol edildi"
 tracking status --json
 ```
 
-Engel için `tracking task block TASK_ID --note "Engel"`, yeniden sıraya almak için `tracking task reopen TASK_ID --note "Neden"` kullan. `tracking context` açık işleri kısa bir metin olarak özetler.
+Engel için `tracking task block TASK_ID --note "Engel"`, yeniden sıraya almak için `tracking task reopen TASK_ID --note "Neden"` kullan. İş bitti ama inceleme veya onay bekliyorsa `tracking task review TASK_ID --note "Neyin hazır olduğu ve nasıl doğrulandığı"` kullan; `tracking next` incelemedeki görevleri önermez. Onaydan sonra görevi `tracking task done` ile kapat; değişiklik istenirse `tracking task start` ile geri al. `tracking context` ajan oturumları için kısa bir özet verir: görev sayıları, `doing`, `review` veya `blocked` durumundaki görevler ve `tracking next` sırasındaki ilk beş görev. Tüm açık görevleri planlara göre görmek için `tracking context --all` kullan.
 
 Tek bir kaydı JSON olarak görmek için `tracking plan show PLAN_ID` (bağlı görevleriyle) veya `tracking task show TASK_ID` (geçmişiyle) kullan. Düzenleme komutları yalnız verdiğin alanları değiştirir:
 
@@ -167,14 +167,14 @@ tracking integrate codex
 tracking integrate claude
 ```
 
-Her komut ilgili `tracking` skill’ini ve oturum başlangıcında `tracking context` çalıştıran hook’u kurar. Skill, ajana planı okuma, görevleri güncelleme ve tamamlanan işi not etme akışını anlatır. Hook oturum açıldığında, devam edildiğinde veya bağlam yenilendiğinde kısa proje durumunu hatırlatır; görevleri kendi başına değiştirmez.
+Her komut ilgili `tracking` skill’ini ve oturum başlangıcında `tracking context` çalıştıran hook’u kurar. Skill, ajana planı okuma, görevleri güncelleme ve tamamlanan işi not etme akışını anlatır. Ajan bir görevi `done` yapmadan önce projenin kendi kurallarına (ör. `CLAUDE.md` veya `AGENTS.md` içindeki bitiş tanımı) uyar; biten ama hâlâ onay bekleyen iş için `review` kullanır. Hook oturum açıldığında, devam edildiğinde veya bağlam yenilendiğinde kısa proje durumunu hatırlatır; görevleri kendi başına değiştirmez. Büyük projelerde de çıktısı kısa kalır; tüm açık görevler için `tracking context --all` kullanılır.
 
 | Araç | Proje skill’i | Proje hook’u |
 | --- | --- | --- |
 | Codex | `.agents/skills/tracking/SKILL.md` | `.codex/hooks.json` |
 | Claude Code | `.claude/skills/tracking/SKILL.md` | `.claude/settings.json` |
 
-`--scope user` aynı dosyaları kullanıcı ev dizinindeki konumlara kurar; kullanıcı kapsamındaki hook, Tracking’e bağlanmamış dizinlerde sessizce geçer. `--no-hook` yalnız skill’i kurar. Farklı içerikli mevcut bir skill `--force` olmadan değiştirilmez. Hook komutu için `tracking` ikili dosyası ajanın ortamındaki `PATH` üzerinde olmalıdır. Codex’te yeni hook’un çalışması için onu `/hooks` içinden inceleyip güvenilir olarak işaretlemek gerekebilir. Ayrıntılar: [entegrasyon rehberi](integrations/README.tr.md), [Codex skill belgeleri](https://learn.chatgpt.com/docs/build-skills), [Codex hook belgeleri](https://learn.chatgpt.com/docs/hooks), [Claude Code skill belgeleri](https://code.claude.com/docs/en/skills) ve [Claude Code hook belgeleri](https://code.claude.com/docs/en/hooks).
+`--scope user` aynı dosyaları kullanıcı ev dizinindeki konumlara kurar; kullanıcı kapsamındaki hook, Tracking’e bağlanmamış dizinlerde sessizce geçer. `--no-hook` yalnız skill’i kurar. Farklı içerikli mevcut bir skill `--force` olmadan değiştirilmez; Tracking’i güncelledikten sonra yeni skill’i kurmak için aynı `tracking integrate` komutunu `--force` ile yeniden çalıştır. Hook komutu için `tracking` ikili dosyası ajanın ortamındaki `PATH` üzerinde olmalıdır. Codex’te yeni hook’un çalışması için onu `/hooks` içinden inceleyip güvenilir olarak işaretlemek gerekebilir. Ayrıntılar: [entegrasyon rehberi](integrations/README.tr.md), [Codex skill belgeleri](https://learn.chatgpt.com/docs/build-skills), [Codex hook belgeleri](https://learn.chatgpt.com/docs/hooks), [Claude Code skill belgeleri](https://code.claude.com/docs/en/skills) ve [Claude Code hook belgeleri](https://code.claude.com/docs/en/hooks).
 
 Skill, ajanın bu akışı izlemesini teşvik eder; her yanıtın otomatik olarak Tracking’e yazılacağını garanti etmez. İşin sonunda `tracking status --json` ile kaydı kontrol etmek yararlıdır.
 

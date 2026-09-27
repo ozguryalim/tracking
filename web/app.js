@@ -21,12 +21,12 @@ const messages = {
     folderNotLinked: "Not linked to a folder", copyAttach: "Copy the link command",
     newPlan: "New plan", addTask: "Add task", projectSummary: "Project summary",
     totalTasks: "TOTAL TASKS", underPlans: "Across {plans}", activeTasks: "IN PROGRESS",
-    blockedTasks: "{count} blocked", currentlyInProgress: "Work in progress", notStarted: "Not started yet",
+    blockedTasks: "{count} blocked", reviewTasks: "{count} in review", currentlyInProgress: "Work in progress", notStarted: "Not started yet",
     progress: "PROGRESS", completedCount: "{done} of {total} complete", completedRate: "Task completion rate",
     workPlan: "WORK PLAN", plansAndTasks: "Plans and tasks", planTaskCount: "{plans}, {tasks}",
     searchTasks: "Search tasks", addPlan: "Add plan", statusFilter: "Filter tasks by status",
     filterAll: "All", statusTodo: "To do", statusDoing: "In progress", statusBlocked: "Blocked",
-    statusDone: "Done", noDescription: "No description yet", noGoal: "No goal set for this plan.",
+    statusReview: "In review", statusDone: "Done", noDescription: "No description yet", noGoal: "No goal set for this plan.",
     edit: "Edit", noTasksInPlan: "No tasks in this plan yet.", firstPlanTitle: "Create your first plan.",
     firstPlanDescription: "Set a goal, then break it into tasks you can complete.",
     matchingTasksOne: "{count} matching task", matchingTasksMany: "{count} matching tasks", unplannedTasks: "Tasks without a plan",
@@ -35,11 +35,11 @@ const messages = {
     startedAt: "Started", completedAt: "Completed", taskDetails: "TASK DETAILS",
     taskName: "Task name", description: "Description", descriptionPlaceholder: "Describe the work and expected result.",
     plan: "Plan", status: "Status", changeNote: "Change note", completionNoteRequired: "Completion note · required",
-    changeNotePlaceholder: "Briefly describe what you did.", saveChanges: "Save changes",
+    reviewNoteRequired: "Review note · required", changeNotePlaceholder: "Briefly describe what you did.", saveChanges: "Save changes",
     timeline: "Timeline", newNote: "New note", newNotePlaceholder: "Add a progress, decision, or blocker note.",
     addNote: "Add note", eventNote: "Note added", eventCreated: "Task created",
     eventEdited: "Task edited", eventTodo: "Marked to do", eventDoing: "Work started",
-    eventBlocked: "Blocked", eventDone: "Completed", eventGeneric: "Task activity",
+    eventBlocked: "Blocked", eventReview: "Sent for review", eventDone: "Completed", eventGeneric: "Task activity",
     eventsLoading: "Loading", loadingHistory: "Loading history…", eventsFailed: "Could not load",
     historyFailed: "Could not load task history.", retryInline: "Try again",
     noHistory: "No notes or status changes yet.", createPlanFirst: "Create a plan for this project first.",
@@ -52,7 +52,7 @@ const messages = {
     newTaskDescription: "Define one small, clear step.", taskNamePlaceholder: "e.g. Build the sign-in screen",
     nameRequired: "Enter a name.", planRequired: "Choose a plan.", projectCreated: "Project created.", planCreated: "Plan created.",
     planUpdated: "Plan updated.", taskAdded: "Task added.", taskNameRequired: "Task name cannot be empty.",
-    completionNoteMissing: "Briefly describe the completed work.", noChanges: "Nothing to save.",
+    completionNoteMissing: "Briefly describe the completed work.", reviewNoteMissing: "Briefly describe what is ready for review.", noChanges: "Nothing to save.",
     taskUpdated: "Task updated.", noteRequired: "Note cannot be empty.", noteAdded: "Note added.",
     clipboardUnavailable: "Copy is unavailable. Copy the command shown on screen manually.",
     clipboardCopied: "Link command copied.", clipboardFailed: "Could not copy. Copy the command shown on screen manually.",
@@ -83,12 +83,12 @@ const messages = {
     folderNotLinked: "Klasöre bağlı değil", copyAttach: "Bağlama komutunu kopyala",
     newPlan: "Yeni plan", addTask: "Görev ekle", projectSummary: "Proje özeti",
     totalTasks: "TOPLAM GÖREV", underPlans: "{plans} altında", activeTasks: "SÜREN GÖREV",
-    blockedTasks: "{count} engelli görev", currentlyInProgress: "Şu anda sürüyor", notStarted: "Henüz başlanmadı",
+    blockedTasks: "{count} engelli görev", reviewTasks: "{count} incelemedeki görev", currentlyInProgress: "Şu anda sürüyor", notStarted: "Henüz başlanmadı",
     progress: "İLERLEME", completedCount: "{done} / {total} tamamlandı", completedRate: "Tamamlanan görev oranı",
     workPlan: "ÇALIŞMA PLANI", plansAndTasks: "Planlar ve görevler", planTaskCount: "{plans}, {tasks}",
     searchTasks: "Görevlerde ara", addPlan: "Plan ekle", statusFilter: "Görev durumu filtresi",
     filterAll: "Tümü", statusTodo: "Yapılacak", statusDoing: "Sürüyor", statusBlocked: "Engelli",
-    statusDone: "Bitti", noDescription: "Açıklama eklenmedi", noGoal: "Bu plan için hedef belirtilmedi.",
+    statusReview: "İncelemede", statusDone: "Bitti", noDescription: "Açıklama eklenmedi", noGoal: "Bu plan için hedef belirtilmedi.",
     edit: "Düzenle", noTasksInPlan: "Bu planda henüz görev yok.", firstPlanTitle: "İlk planını oluştur.",
     firstPlanDescription: "Bir hedef yaz, sonra onu tamamlanabilir görevlere ayır.",
     matchingTasksOne: "{count} eşleşen görev", matchingTasksMany: "{count} eşleşen görev", unplannedTasks: "Plansız görevler",
@@ -97,11 +97,11 @@ const messages = {
     startedAt: "Başladı", completedAt: "Bitti", taskDetails: "GÖREV DETAYI",
     taskName: "Görev adı", description: "Açıklama", descriptionPlaceholder: "Yapılacak işi ve beklenen sonucu yazın.",
     plan: "Plan", status: "Durum", changeNote: "Değişiklik notu", completionNoteRequired: "Tamamlama notu · gerekli",
-    changeNotePlaceholder: "Ne yaptığınızı kısaca yazın.", saveChanges: "Değişiklikleri kaydet",
+    reviewNoteRequired: "İnceleme notu · gerekli", changeNotePlaceholder: "Ne yaptığınızı kısaca yazın.", saveChanges: "Değişiklikleri kaydet",
     timeline: "Zaman çizelgesi", newNote: "Yeni not", newNotePlaceholder: "İlerleme, karar veya engel notu ekleyin.",
     addNote: "Not ekle", eventNote: "Not eklendi", eventCreated: "Görev oluşturuldu",
     eventEdited: "Görev düzenlendi", eventTodo: "Yapılacak olarak işaretlendi", eventDoing: "Çalışmaya başladı",
-    eventBlocked: "Engellendi", eventDone: "Tamamlandı", eventGeneric: "Görev etkinliği",
+    eventBlocked: "Engellendi", eventReview: "İncelemeye gönderildi", eventDone: "Tamamlandı", eventGeneric: "Görev etkinliği",
     eventsLoading: "Yükleniyor", loadingHistory: "Geçmiş yükleniyor…", eventsFailed: "Yüklenemedi",
     historyFailed: "Görev geçmişi yüklenemedi.", retryInline: "Tekrar dene",
     noHistory: "Henüz not veya durum kaydı yok.", createPlanFirst: "Önce bu proje için bir plan oluşturun.",
@@ -114,7 +114,7 @@ const messages = {
     newTaskDescription: "Küçük ve net bir adım tanımla.", taskNamePlaceholder: "Ör. Giriş ekranını hazırla",
     nameRequired: "Bir ad girin.", planRequired: "Bir plan seçin.", projectCreated: "Proje oluşturuldu.", planCreated: "Plan oluşturuldu.",
     planUpdated: "Plan güncellendi.", taskAdded: "Görev eklendi.", taskNameRequired: "Görev adı boş olamaz.",
-    completionNoteMissing: "Tamamlanan iş için kısa bir not yazın.", noChanges: "Kaydedilecek değişiklik yok.",
+    completionNoteMissing: "Tamamlanan iş için kısa bir not yazın.", reviewNoteMissing: "İncelemeye hazır iş için kısa bir not yazın.", noChanges: "Kaydedilecek değişiklik yok.",
     taskUpdated: "Görev güncellendi.", noteRequired: "Not boş olamaz.", noteAdded: "Not eklendi.",
     clipboardUnavailable: "Kopyalama kullanılamıyor; ekrandaki komutu elle kopyalayın.",
     clipboardCopied: "Bağlama komutu kopyalandı.", clipboardFailed: "Komut kopyalanamadı; ekrandaki komutu elle kopyalayın.",
@@ -125,7 +125,7 @@ const messages = {
   },
 };
 
-const statusMeta = { todo: "statusTodo", doing: "statusDoing", blocked: "statusBlocked", done: "statusDone" };
+const statusMeta = { todo: "statusTodo", doing: "statusDoing", blocked: "statusBlocked", review: "statusReview", done: "statusDone" };
 
 function detectedLocale() {
   try {
@@ -336,8 +336,10 @@ function renderProjectPage() {
   const done = tasks.filter((task) => task.status === "done").length;
   const doing = tasks.filter((task) => task.status === "doing").length;
   const blocked = tasks.filter((task) => task.status === "blocked").length;
+  const review = tasks.filter((task) => task.status === "review").length;
+  const waiting = [blocked && t("blockedTasks", {count:blocked}), review && t("reviewTasks", {count:review})].filter(Boolean).join(" · ");
   const percent = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
-  const next = tasks.find((task) => task.status === "doing") || tasks.find((task) => task.status === "todo") || tasks.find((task) => task.status === "blocked");
+  const next = tasks.find((task) => task.status === "doing") || tasks.find((task) => task.status === "todo") || tasks.find((task) => task.status === "blocked") || tasks.find((task) => task.status === "review");
 
   const projectPath = project.path
     ? `${icon("folder")} <span title="${h(project.path)}">${h(project.path)}</span>`
@@ -351,7 +353,7 @@ function renderProjectPage() {
   <section class="overview-grid" aria-label="${t("projectSummary")}">
     ${focusCard(next)}
     <article class="overview-card stat-card"><span class="stat-icon">${icon("folder")}</span><div><span class="overview-label">${t("totalTasks")}</span><div class="stat-value">${tasks.length}</div><p>${t("underPlans", {plans:quantity("plan", state.plans.length), count:state.plans.length})}</p></div></article>
-    <article class="overview-card stat-card"><span class="stat-icon">${icon("clock")}</span><div><span class="overview-label">${t("activeTasks")}</span><div class="stat-value">${doing}</div><p>${blocked ? t("blockedTasks", {count:blocked}) : doing ? t("currentlyInProgress") : t("notStarted")}</p></div></article>
+    <article class="overview-card stat-card"><span class="stat-icon">${icon("clock")}</span><div><span class="overview-label">${t("activeTasks")}</span><div class="stat-value">${doing}</div><p>${waiting || (doing ? t("currentlyInProgress") : t("notStarted"))}</p></div></article>
     <article class="overview-card progress-card"><div class="progress-heading"><span class="overview-label">${t("progress")}</span>${icon("spark")}</div><strong>${state.locale === "tr" ? `%${percent}` : `${percent}%`}</strong><p>${t("completedCount", {done, total:tasks.length})}</p><div class="progress-track" role="progressbar" aria-label="${t("completedRate")}" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"><span style="width:${percent}%"></span></div></article>
   </section>
   <section class="plans-section" aria-labelledby="plans-title"><div class="section-heading">
@@ -365,7 +367,7 @@ function renderProjectPage() {
 }
 
 function filterButtons() {
-  return [["all", "filterAll"], ["todo", "statusTodo"], ["doing", "statusDoing"], ["blocked", "statusBlocked"], ["done", "statusDone"]].map(([value, key]) =>
+  return [["all", "filterAll"], ["todo", "statusTodo"], ["doing", "statusDoing"], ["blocked", "statusBlocked"], ["review", "statusReview"], ["done", "statusDone"]].map(([value, key]) =>
     `<button class="filter-button${state.filter === value ? " active" : ""}" type="button" data-action="set-filter" data-filter="${value}" aria-pressed="${state.filter === value}">${t(key)}</button>`
   ).join("");
 }
@@ -568,6 +570,7 @@ function eventHeading(event) {
     task_todo: t("eventTodo"),
     task_doing: t("eventDoing"),
     task_blocked: t("eventBlocked"),
+    task_review: t("eventReview"),
     task_done: t("eventDone"),
   })[kind] || t("eventGeneric");
 }
@@ -634,11 +637,11 @@ function renderDrawer() {
 function updateCompletionHint() {
   const status = drawer.querySelector("#edit-status")?.value;
   const task = state.tasks.find((item) => item.id === state.taskId);
-  const needsNote = status === "done" && task?.status !== "done";
+  const needsNote = (status === "done" || status === "review") && task?.status !== status;
   const input = drawer.querySelector("#edit-change-note");
   const label = drawer.querySelector("#change-note-label");
   if (input) input.required = needsNote;
-  if (label) label.textContent = needsNote ? t("completionNoteRequired") : t("changeNote");
+  if (label) label.textContent = needsNote ? t(status === "review" ? "reviewNoteRequired" : "completionNoteRequired") : t("changeNote");
 }
 
 function openCreate(kind, planId = "") {
@@ -731,6 +734,7 @@ async function submitTaskEdit(event) {
   const note = String(data.get("note") || "").trim();
   if (!title) return formError("task-edit-error", t("taskNameRequired"));
   if (status === "done" && task.status !== "done" && !note) return formError("task-edit-error", t("completionNoteMissing"));
+  if (status === "review" && task.status !== "review" && !note) return formError("task-edit-error", t("reviewNoteMissing"));
   const payload = {};
   if (title !== task.title) payload.title = title;
   if (description !== (task.description || "")) payload.description = description;

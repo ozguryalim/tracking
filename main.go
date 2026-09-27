@@ -117,13 +117,14 @@ Usage:
   tracking task edit ID [--title TITLE] [--description TEXT] [--plan PLAN_ID] [--note TEXT]
   tracking task delete ID --yes
   tracking task start ID [--note TEXT]
+  tracking task review ID --note TEXT
   tracking task done ID --note TEXT
   tracking task block ID --note TEXT
   tracking task reopen ID [--note TEXT]
   tracking task note ID --note TEXT
   tracking status [--json]
   tracking next [--json]
-  tracking context
+  tracking context [--all]
   tracking version
   tracking update check
   tracking update [--yes]
@@ -505,8 +506,8 @@ func runTask(ctx context.Context, store *Store, args []string, out, errOut io.Wr
 	}
 	var task Task
 	switch args[0] {
-	case "start", "done", "block", "reopen":
-		status := map[string]string{"start": "doing", "done": "done", "block": "blocked", "reopen": "todo"}[args[0]]
+	case "start", "review", "done", "block", "reopen":
+		status := map[string]string{"start": "doing", "review": "review", "done": "done", "block": "blocked", "reopen": "todo"}[args[0]]
 		task, err = store.PatchTask(ctx, id, TaskPatch{Status: &status, Note: *note}, actorName())
 	case "note":
 		task, err = store.AddNote(ctx, id, *note, actorName())
@@ -567,7 +568,11 @@ func runStatus(ctx context.Context, store *Store, args []string, out, errOut io.
 	if *asJSON {
 		return writeJSON(out, detail)
 	}
-	fmt.Fprintf(out, "%s  %d/%d done\n", detail.Project.Name, detail.Project.DoneCount, detail.Project.TaskCount)
+	fmt.Fprintf(out, "%s  %d/%d done", detail.Project.Name, detail.Project.DoneCount, detail.Project.TaskCount)
+	if review := countStatus(detail.Tasks, "review"); review > 0 {
+		fmt.Fprintf(out, ", %d in review", review)
+	}
+	fmt.Fprintln(out)
 	for _, plan := range detail.Plans {
 		fmt.Fprintf(out, "\n%s  %s\n", plan.ID, plan.Title)
 		for _, task := range detail.Tasks {
@@ -577,6 +582,16 @@ func runStatus(ctx context.Context, store *Store, args []string, out, errOut io.
 		}
 	}
 	return nil
+}
+
+func countStatus(tasks []Task, status string) int {
+	count := 0
+	for _, task := range tasks {
+		if task.Status == status {
+			count++
+		}
+	}
+	return count
 }
 
 func runNext(ctx context.Context, store *Store, args []string, out, errOut io.Writer) error {
@@ -605,8 +620,12 @@ func runNext(ctx context.Context, store *Store, args []string, out, errOut io.Wr
 	return nil
 }
 
+// contextNextLimit is how many tasks from tracking next the session context lists.
+const contextNextLimit = 5
+
 func runContext(ctx context.Context, store *Store, args []string, out, errOut io.Writer) error {
 	flags := newFlags("context", errOut)
+	all := flags.Bool("all", false, "list every open task by plan")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -621,15 +640,53 @@ func runContext(ctx context.Context, store *Store, args []string, out, errOut io
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "Tracking project: %s. %d of %d tasks done.\n", detail.Project.Name,
+	fmt.Fprintf(out, "Tracking project: %s. %d of %d tasks done", detail.Project.Name,
 		detail.Project.DoneCount, detail.Project.TaskCount)
-	for _, plan := range detail.Plans {
-		fmt.Fprintf(out, "Plan %s: %s\n", plan.ID, plan.Title)
+	var open []string
+	for _, status := range []string{"doing", "review", "blocked", "todo"} {
+		if count := countStatus(detail.Tasks, status); count > 0 {
+			if status == "review" {
+				status = "in review"
+			}
+			open = append(open, fmt.Sprintf("%d %s", count, status))
+		}
+	}
+	if len(open) > 0 {
+		fmt.Fprintf(out, "; %s", strings.Join(open, ", "))
+	}
+	fmt.Fprintln(out, ".")
+	if *all {
+		for _, plan := range detail.Plans {
+			fmt.Fprintf(out, "Plan %s: %s\n", plan.ID, plan.Title)
+			for _, task := range detail.Tasks {
+				if task.PlanID == plan.ID && task.Status != "done" {
+					fmt.Fprintf(out, "- [%s] %s %s\n", task.Status, task.ID, task.Title)
+				}
+			}
+		}
+		return nil
+	}
+	// Keep session context short: started work, then the first ready tasks.
+	for _, status := range []string{"doing", "review", "blocked"} {
 		for _, task := range detail.Tasks {
-			if task.PlanID == plan.ID && task.Status != "done" {
+			if task.Status == status {
 				fmt.Fprintf(out, "- [%s] %s %s\n", task.Status, task.ID, task.Title)
 			}
 		}
+	}
+	next, err := store.NextTasks(ctx, manifest.ID)
+	if err != nil {
+		return err
+	}
+	next = next[:min(len(next), contextNextLimit)]
+	if len(next) > 0 {
+		fmt.Fprintln(out, "Next:")
+	}
+	for _, task := range next {
+		fmt.Fprintf(out, "- [%s] %s %s\n", task.Status, task.ID, task.Title)
+	}
+	if hidden := countStatus(detail.Tasks, "todo") - len(next); hidden > 0 {
+		fmt.Fprintf(out, "%d more todo tasks not listed; run `tracking context --all` for every open task.\n", hidden)
 	}
 	return nil
 }
