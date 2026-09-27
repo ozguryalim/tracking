@@ -2,7 +2,7 @@
 
 English | [Türkçe](README.tr.md)
 
-**Keep AI-assisted plans organized by project, with dated notes for the work behind every task.** Tracking provides a CLI for Codex and Claude Code, a local SQLite database, and a simple browser dashboard. Agents can create and edit plans and tasks directly, and move tasks through `todo`, `doing`, `blocked`, and `done`. There is no separate approval gate or mandatory evidence step.
+**Keep AI-assisted plans organized by project, with dated notes for the work behind every task.** Tracking provides a CLI for Codex and Claude Code, a local SQLite database, and a simple browser dashboard. Agents can create and edit plans and tasks directly, and move tasks through `todo`, `doing`, `review`, `blocked`, and `done`. There is no separate approval gate or mandatory evidence step.
 
 The CLI and dashboard share the same data. Each plan and task belongs to a project; task changes and notes are recorded in an event history with an actor and UTC timestamp. Commands such as `status --json` and `next --json` give agents structured access to that state.
 
@@ -80,7 +80,7 @@ tracking update check
 
 When `tracking` or `tracking dashboard` starts from an interactive terminal, it checks at most once every 30 minutes. A newer release produces one short notice on stderr per version; network failures are silent. Agent hooks, JSON commands, and background servers do not display notices. Nothing installs automatically.
 
-On macOS and Linux, `tracking update` asks before downloading and replacing the current release binary. Use `tracking update --yes` when you explicitly want a non-interactive install. The download is checked against the release checksum. On Windows, the command gives the release download link for manual replacement. After updating, run `tracking stop` and reopen the dashboard if it was already running. Binaries built directly from source report `dev`; use `tracking update check` to inspect releases, or install a release binary to receive automatic notices.
+On macOS and Linux, `tracking update` asks before downloading and replacing the current release binary. Use `tracking update --yes` when you explicitly want a non-interactive install. The download is checked against the release checksum. On Windows, the command gives the release download link for manual replacement. After updating, run `tracking stop` and reopen the dashboard if it was already running. Versions with the `review` status upgrade an existing database automatically the first time they open it; tasks and their history are kept. Binaries built directly from source report `dev`; use `tracking update check` to inspect releases, or install a release binary to receive automatic notices.
 
 For maintainers, push a stable version tag after the code is on `main` to build and publish the release:
 
@@ -110,7 +110,7 @@ tracking task done TASK_ID --note "Checked the screen at runtime"
 tracking status --json
 ```
 
-Use `tracking task block TASK_ID --note "Reason"` when work is blocked, and `tracking task reopen TASK_ID --note "Reason"` to return it to `todo`. `tracking context` prints a short summary of open work.
+Use `tracking task block TASK_ID --note "Reason"` when work is blocked, and `tracking task reopen TASK_ID --note "Reason"` to return it to `todo`. When finished work awaits review or approval, use `tracking task review TASK_ID --note "What is ready and how it was checked"`; `tracking next` does not suggest tasks in review. After approval, close the task with `tracking task done`; if changes are requested, move it back with `tracking task start`. `tracking context` prints a short summary of open work.
 
 Inspect one record as JSON with `tracking plan show PLAN_ID` (including its tasks) or `tracking task show TASK_ID` (including its history). Edit only the fields you provide:
 

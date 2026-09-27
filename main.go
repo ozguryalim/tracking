@@ -117,6 +117,7 @@ Usage:
   tracking task edit ID [--title TITLE] [--description TEXT] [--plan PLAN_ID] [--note TEXT]
   tracking task delete ID --yes
   tracking task start ID [--note TEXT]
+  tracking task review ID --note TEXT
   tracking task done ID --note TEXT
   tracking task block ID --note TEXT
   tracking task reopen ID [--note TEXT]
@@ -505,8 +506,8 @@ func runTask(ctx context.Context, store *Store, args []string, out, errOut io.Wr
 	}
 	var task Task
 	switch args[0] {
-	case "start", "done", "block", "reopen":
-		status := map[string]string{"start": "doing", "done": "done", "block": "blocked", "reopen": "todo"}[args[0]]
+	case "start", "review", "done", "block", "reopen":
+		status := map[string]string{"start": "doing", "review": "review", "done": "done", "block": "blocked", "reopen": "todo"}[args[0]]
 		task, err = store.PatchTask(ctx, id, TaskPatch{Status: &status, Note: *note}, actorName())
 	case "note":
 		task, err = store.AddNote(ctx, id, *note, actorName())
@@ -567,7 +568,11 @@ func runStatus(ctx context.Context, store *Store, args []string, out, errOut io.
 	if *asJSON {
 		return writeJSON(out, detail)
 	}
-	fmt.Fprintf(out, "%s  %d/%d done\n", detail.Project.Name, detail.Project.DoneCount, detail.Project.TaskCount)
+	fmt.Fprintf(out, "%s  %d/%d done", detail.Project.Name, detail.Project.DoneCount, detail.Project.TaskCount)
+	if review := countStatus(detail.Tasks, "review"); review > 0 {
+		fmt.Fprintf(out, ", %d in review", review)
+	}
+	fmt.Fprintln(out)
 	for _, plan := range detail.Plans {
 		fmt.Fprintf(out, "\n%s  %s\n", plan.ID, plan.Title)
 		for _, task := range detail.Tasks {
@@ -577,6 +582,16 @@ func runStatus(ctx context.Context, store *Store, args []string, out, errOut io.
 		}
 	}
 	return nil
+}
+
+func countStatus(tasks []Task, status string) int {
+	count := 0
+	for _, task := range tasks {
+		if task.Status == status {
+			count++
+		}
+	}
+	return count
 }
 
 func runNext(ctx context.Context, store *Store, args []string, out, errOut io.Writer) error {

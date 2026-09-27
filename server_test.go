@@ -116,6 +116,24 @@ func TestHTTPProjectPlanTaskFlowAndAssets(t *testing.T) {
 	}
 }
 
+func TestHTTPReviewStatusRequiresNote(t *testing.T) {
+	store, _ := testStore(t)
+	project := mustProject(t, store, "Review")
+	plan := mustPlan(t, store, project.ID)
+	task := mustTask(t, store, project.ID, plan.ID, "Dashboard review")
+	handler := newHTTPHandler(store)
+
+	decodeResponse[struct {
+		Error string `json:"error"`
+	}](t, apiRequest(t, handler, http.MethodPatch, "/api/tasks/"+task.ID, `{"status":"review"}`), http.StatusBadRequest)
+	result := decodeResponse[struct {
+		Task Task `json:"task"`
+	}](t, apiRequest(t, handler, http.MethodPatch, "/api/tasks/"+task.ID, `{"status":"review","note":"Ready for review"}`), http.StatusOK)
+	if result.Task.Status != "review" || result.Task.CompletedAt != "" {
+		t.Fatalf("task not in review: %+v", result.Task)
+	}
+}
+
 func TestHTTPRejectsInvalidInputAndUnknownRecords(t *testing.T) {
 	store, _ := testStore(t)
 	handler := newHTTPHandler(store)

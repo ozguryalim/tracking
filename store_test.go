@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -217,6 +218,126 @@ func TestTaskLifecycleAndPersistence(t *testing.T) {
 	next, err := reopened.NextTasks(ctx, project.ID)
 	if err != nil || len(next) != 1 || next[0].ID != task.ID {
 		t.Fatalf("reopened task should be next: tasks=%+v err=%v", next, err)
+	}
+}
+
+func TestReviewStatusRequiresNoteAndStaysOutOfNext(t *testing.T) {
+	store, _ := testStore(t)
+	ctx := context.Background()
+	project := mustProject(t, store, "Review")
+	plan := mustPlan(t, store, project.ID)
+	task := mustTask(t, store, project.ID, plan.ID, "Awaiting approval")
+	ready := mustTask(t, store, project.ID, plan.ID, "Ready task")
+
+	review := "review"
+	if _, err := store.PatchTask(ctx, task.ID, TaskPatch{Status: &review}, "codex"); !errors.Is(err, errValidation) {
+		t.Fatalf("review without note: got %v, want validation error", err)
+	}
+	reviewed, err := store.PatchTask(ctx, task.ID, TaskPatch{Status: &review, Note: "Acceptance tests pass"}, "codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reviewed.Status != "review" || reviewed.CompletedAt != "" {
+		t.Fatalf("review state: %+v", reviewed)
+	}
+	events, err := store.TaskEvents(ctx, task.ID)
+	if err != nil || len(events) == 0 || events[0].Kind != "task_review" || events[0].Note != "Acceptance tests pass" {
+		t.Fatalf("review event: events=%+v err=%v", events, err)
+	}
+	next, err := store.NextTasks(ctx, project.ID)
+	if err != nil || len(next) != 1 || next[0].ID != ready.ID {
+		t.Fatalf("next should skip tasks in review: tasks=%+v err=%v", next, err)
+	}
+	done := "done"
+	completed, err := store.PatchTask(ctx, task.ID, TaskPatch{Status: &done, Note: "Approved"}, "user")
+	if err != nil || completed.Status != "done" || completed.CompletedAt == "" {
+		t.Fatalf("complete reviewed task: task=%+v err=%v", completed, err)
+	}
+}
+
+func TestOpenStoreAddsReviewStatusToExistingDatabase(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "legacy.db")
+	legacy, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Schema and rows written by versions without the review status.
+	for _, statement := range []string{
+		`CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`,
+		`CREATE TABLE plans (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+			title TEXT NOT NULL, goal TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`,
+		`CREATE TABLE tasks (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+			plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL CHECK(status IN ('todo', 'doing', 'blocked', 'done')), created_at TEXT NOT NULL,
+			started_at TEXT, completed_at TEXT, updated_at TEXT NOT NULL)`,
+		`CREATE TABLE events (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+			plan_id TEXT REFERENCES plans(id) ON DELETE SET NULL, task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+			kind TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', actor TEXT NOT NULL, occurred_at TEXT NOT NULL)`,
+		`CREATE INDEX tasks_project_status ON tasks(project_id, status, created_at)`,
+		`CREATE INDEX tasks_plan ON tasks(plan_id, created_at)`,
+		`INSERT INTO projects VALUES ('pr-old', 'Legacy', '', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')`,
+		`INSERT INTO plans VALUES ('pl-old', 'pr-old', 'Plan', '', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')`,
+		`INSERT INTO tasks VALUES ('tk-old', 'pr-old', 'pl-old', 'Started task', 'Keep me', 'doing',
+			'2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z', NULL, '2026-01-02T00:00:00Z')`,
+		`INSERT INTO events VALUES ('ev-old', 'pr-old', 'pl-old', 'tk-old', 'task_doing', 'Started work', 'codex', '2026-01-02T00:00:00Z')`,
+	} {
+		if _, err := legacy.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err := openStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	task, err := store.GetTask(ctx, "tk-old")
+	if err != nil || task.Status != "doing" || task.Description != "Keep me" || task.StartedAt != "2026-01-02T00:00:00Z" {
+		t.Fatalf("upgraded task: %+v, %v", task, err)
+	}
+	events, err := store.TaskEvents(ctx, "tk-old")
+	if err != nil || len(events) != 1 || events[0].ID != "ev-old" {
+		t.Fatalf("task history lost its task link: events=%+v err=%v", events, err)
+	}
+	var indexes, foreignKeys int
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'tasks'
+		AND name IN ('tasks_project_status', 'tasks_plan')`).Scan(&indexes); err != nil || indexes != 2 {
+		t.Fatalf("task indexes after upgrade: %d, %v", indexes, err)
+	}
+	if err := store.db.QueryRow(`PRAGMA foreign_keys`).Scan(&foreignKeys); err != nil || foreignKeys != 1 {
+		t.Fatalf("foreign keys after upgrade: %d, %v", foreignKeys, err)
+	}
+	if err := store.db.QueryRow(`PRAGMA foreign_key_check`).Scan(); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("foreign key check after upgrade: %v", err)
+	}
+	review := "review"
+	if _, err := store.PatchTask(ctx, "tk-old", TaskPatch{Status: &review, Note: "Ready for review"}, "codex"); err != nil {
+		t.Fatalf("review after upgrade: %v", err)
+	}
+
+	// An upgraded table is not rebuilt again; a rebuild would move its root page.
+	var rootPage, reopenedRootPage int
+	if err := store.db.QueryRow(`SELECT rootpage FROM sqlite_master WHERE type = 'table' AND name = 'tasks'`).Scan(&rootPage); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := openStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	if err := reopened.db.QueryRow(`SELECT rootpage FROM sqlite_master WHERE type = 'table' AND name = 'tasks'`).Scan(&reopenedRootPage); err != nil {
+		t.Fatal(err)
+	}
+	if reopenedRootPage != rootPage {
+		t.Fatalf("tasks table was rebuilt on reopen: root page %d, then %d", rootPage, reopenedRootPage)
 	}
 }
 

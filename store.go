@@ -123,6 +123,11 @@ func openStore(path string) (*Store, error) {
 			return nil, fmt.Errorf("configure database: %w", err)
 		}
 	}
+	// Upgrade an existing tasks table first; the statements below recreate its indexes.
+	if err := addReviewStatus(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("upgrade database: %w", err)
+	}
 	for _, statement := range []string{
 		`CREATE TABLE IF NOT EXISTS projects (
 			id TEXT PRIMARY KEY,
@@ -139,18 +144,7 @@ func openStore(path string) (*Store, error) {
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL
 		)`,
-		`CREATE TABLE IF NOT EXISTS tasks (
-			id TEXT PRIMARY KEY,
-			project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-			plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
-			title TEXT NOT NULL,
-			description TEXT NOT NULL DEFAULT '',
-			status TEXT NOT NULL CHECK(status IN ('todo', 'doing', 'blocked', 'done')),
-			created_at TEXT NOT NULL,
-			started_at TEXT,
-			completed_at TEXT,
-			updated_at TEXT NOT NULL
-		)`,
+		`CREATE TABLE IF NOT EXISTS tasks ` + taskColumns,
 		`CREATE TABLE IF NOT EXISTS events (
 			id TEXT PRIMARY KEY,
 			project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -173,6 +167,70 @@ func openStore(path string) (*Store, error) {
 		}
 	}
 	return &Store{db: db, key: databaseKey(path)}, nil
+}
+
+// taskColumns defines the tasks table for new databases and for addReviewStatus.
+const taskColumns = `(
+			id TEXT PRIMARY KEY,
+			project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+			plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+			title TEXT NOT NULL,
+			description TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL CHECK(status IN ('todo', 'doing', 'review', 'blocked', 'done')),
+			created_at TEXT NOT NULL,
+			started_at TEXT,
+			completed_at TEXT,
+			updated_at TEXT NOT NULL
+		)`
+
+// addReviewStatus rebuilds a tasks table created before the review status
+// existed, because SQLite cannot change a CHECK constraint in place. It follows
+// SQLite's documented copy, drop, and rename procedure in one transaction.
+func addReviewStatus(db *sql.DB) (err error) {
+	ctx := context.Background()
+	var schema string
+	err = db.QueryRowContext(ctx, `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'tasks'`).Scan(&schema)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if strings.Contains(schema, "'review'") {
+		return nil
+	}
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	// With foreign keys on, dropping the old table would clear events.task_id.
+	// The pragma has no effect inside a transaction, so it wraps the transaction.
+	if _, err := conn.ExecContext(ctx, `PRAGMA foreign_keys=OFF`); err != nil {
+		return err
+	}
+	defer func() {
+		if _, restoreErr := conn.ExecContext(ctx, `PRAGMA foreign_keys=ON`); err == nil {
+			err = restoreErr
+		}
+	}()
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	columns := `id, project_id, plan_id, title, description, status, created_at, started_at, completed_at, updated_at`
+	for _, statement := range []string{
+		`CREATE TABLE tasks_new ` + taskColumns,
+		`INSERT INTO tasks_new(` + columns + `) SELECT ` + columns + ` FROM tasks`,
+		`DROP TABLE tasks`,
+		`ALTER TABLE tasks_new RENAME TO tasks`,
+	} {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func databaseKey(path string) string {
@@ -803,7 +861,7 @@ func (s *Store) DeleteTask(ctx context.Context, id, actor string) error {
 
 func validStatus(status string) bool {
 	switch status {
-	case "todo", "doing", "blocked", "done":
+	case "todo", "doing", "review", "blocked", "done":
 		return true
 	default:
 		return false
@@ -848,6 +906,9 @@ func (s *Store) PatchTask(ctx context.Context, id string, patch TaskPatch, actor
 	note := strings.TrimSpace(patch.Note)
 	if previous.Status != "done" && task.Status == "done" && note == "" {
 		return Task{}, fmt.Errorf("%w: a completion note is required", errValidation)
+	}
+	if previous.Status != "review" && task.Status == "review" && note == "" {
+		return Task{}, fmt.Errorf("%w: a review note is required", errValidation)
 	}
 	if task == previous && note == "" {
 		return task, nil

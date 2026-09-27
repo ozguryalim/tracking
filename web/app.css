@@ -155,6 +155,8 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .task-status-icon.doing::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #548768; }
 .task-status-icon.blocked { border-color: #e0ba8a; background: #fff8ed; }
 .task-status-icon.blocked::after { content: ""; width: 7px; height: 2px; border-radius: 3px; background: #c98b38; }
+.task-status-icon.review { border-color: #a6b3da; background: #f2f4fb; }
+.task-status-icon.review::after { content: ""; width: 6px; height: 6px; border: 1.5px solid #5b6fae; border-radius: 50%; background: linear-gradient(90deg, #5b6fae 50%, transparent 50%); }
 .task-status-icon.done { border-color: #538668; background: #538668; }
 .task-status-icon svg { width: 13px; height: 13px; stroke-width: 2.4; }
 .task-row-main { display: block; min-width: 0; flex: 1; }
@@ -166,6 +168,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .status-badge { display: inline-flex; align-items: center; min-width: 73px; justify-content: center; padding: 5px 8px; border-radius: 6px; background: #f0f2f0; color: #7d8c81; font-size: 10px; font-weight: 680; white-space: nowrap; }
 .status-badge.doing { background: #edf5ed; color: #4c815e; }
 .status-badge.blocked { background: #fff5e8; color: #ad772f; }
+.status-badge.review { background: #eef1fa; color: #52649e; }
 .status-badge.done { background: #eaf4ed; color: #518366; }
 .task-row-chevron { width: 14px; height: 14px; color: #b5c0b7; }
 .plan-empty { padding: 10px 22px 25px; color: #9aa79d; font-size: 11px; }

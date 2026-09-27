@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -165,6 +166,58 @@ func TestShowAndDeleteCommands(t *testing.T) {
 	}
 	if _, err := store.GetTask(ctx, otherTask.ID); err != nil {
 		t.Fatalf("other project task changed: %v", err)
+	}
+}
+
+// chdirToProject links a temporary directory to project and works inside it.
+func chdirToProject(t *testing.T, project Project) {
+	t.Helper()
+	dir := t.TempDir()
+	data, err := json.Marshal(projectManifest{ID: project.ID, Name: project.Name})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(manifestFile(dir)), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestFile(dir), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+}
+
+func TestTaskReviewCommandIsListedButNotNext(t *testing.T) {
+	store, _ := testStore(t)
+	ctx := context.Background()
+	project := mustProject(t, store, "Review")
+	plan := mustPlan(t, store, project.ID)
+	reviewed := mustTask(t, store, project.ID, plan.ID, "Awaiting approval")
+	ready := mustTask(t, store, project.ID, plan.ID, "Ready task")
+	chdirToProject(t, project)
+
+	if err := runTask(ctx, store, []string{"review", reviewed.ID}, io.Discard, io.Discard); err == nil {
+		t.Fatal("review without a note succeeded")
+	}
+	var output bytes.Buffer
+	if err := runTask(ctx, store, []string{"review", reviewed.ID, "--note", "Acceptance tests pass"}, &output, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if want := reviewed.ID + " review: " + reviewed.Title; !strings.Contains(output.String(), want) {
+		t.Fatalf("review output %q does not contain %q", output.String(), want)
+	}
+	output.Reset()
+	if err := runNext(ctx, store, nil, &output, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), ready.ID) || strings.Contains(output.String(), reviewed.ID) {
+		t.Fatalf("next should list only the ready task:\n%s", output.String())
+	}
+	output.Reset()
+	if err := runStatus(ctx, store, nil, &output, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "0/2 done, 1 in review") || !strings.Contains(output.String(), "review  "+reviewed.ID) {
+		t.Fatalf("status does not show the task in review:\n%s", output.String())
 	}
 }
 

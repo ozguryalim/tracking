@@ -2,7 +2,7 @@
 
 [English](README.md) | Türkçe
 
-**AI ajanlarıyla yaptığın planı proje proje kaydet, yapılan işi tarihli notlarla takip et.** Tracking; Codex ve Claude Code’un kullanabileceği bir CLI, yerel SQLite veri tabanı ve sade bir tarayıcı panosu sunar. Ajan plan ve görevleri doğrudan oluşturabilir, düzenleyebilir, `todo` / `doing` / `blocked` / `done` durumlarını değiştirebilir. Ayrı bir onay kapısı veya zorunlu kanıt adımı yoktur.
+**AI ajanlarıyla yaptığın planı proje proje kaydet, yapılan işi tarihli notlarla takip et.** Tracking; Codex ve Claude Code’un kullanabileceği bir CLI, yerel SQLite veri tabanı ve sade bir tarayıcı panosu sunar. Ajan plan ve görevleri doğrudan oluşturabilir, düzenleyebilir, `todo` / `doing` / `review` / `blocked` / `done` durumlarını değiştirebilir. Ayrı bir onay kapısı veya zorunlu kanıt adımı yoktur.
 
 CLI ile pano aynı veriyi kullanır. Her plan ve görev kendi projesine bağlıdır; görev değişiklikleri ve notlar aktör adı ile UTC zaman damgası taşıyan olay geçmişine yazılır. `status --json` ve `next --json` gibi komutlar ajanların durum okumasına uygundur.
 
@@ -84,7 +84,7 @@ tracking update check
 
 `tracking` veya `tracking dashboard` etkileşimli terminalden açıldığında en fazla 30 dakikada bir kontrol yapar. Yeni sürüm varsa sürüm başına yalnız bir kısa bildirim stderr üzerinde görünür; ağ hataları sessizce geçilir. Ajan hook'ları, JSON komutları ve arka plan sunucuları bildirim göstermez. Kendiliğinden kurulum yapılmaz.
 
-macOS ve Linux'ta `tracking update`, sürüm ikili dosyasını indirip mevcut dosyanın yerine koymadan önce onay ister. Açıkça istediğin gözetimsiz kurulum için `tracking update --yes` kullan. İndirilen dosya Release sağlama toplamıyla doğrulanır. Windows'ta komut, elle değiştirme için indirme bağlantısını verir. Pano zaten açıksa güncellemeden sonra `tracking stop` verip yeniden aç. Doğrudan kaynak koddan derlenen ikili dosyalar `dev` sürümünü gösterir; sürümleri `tracking update check` ile kontrol edebilir veya otomatik bildirim için Release ikili dosyası kurabilirsin.
+macOS ve Linux'ta `tracking update`, sürüm ikili dosyasını indirip mevcut dosyanın yerine koymadan önce onay ister. Açıkça istediğin gözetimsiz kurulum için `tracking update --yes` kullan. İndirilen dosya Release sağlama toplamıyla doğrulanır. Windows'ta komut, elle değiştirme için indirme bağlantısını verir. Pano zaten açıksa güncellemeden sonra `tracking stop` verip yeniden aç. `review` durumunu destekleyen sürümler mevcut veri tabanını ilk açışta kendiliğinden yükseltir; görevler ve geçmişleri korunur. Doğrudan kaynak koddan derlenen ikili dosyalar `dev` sürümünü gösterir; sürümleri `tracking update check` ile kontrol edebilir veya otomatik bildirim için Release ikili dosyası kurabilirsin.
 
 Bakım için kod `main` dalındayken kararlı bir sürüm etiketi gönder; yayın akışı ikili dosyaları üretip Release oluşturur:
 
@@ -114,7 +114,7 @@ tracking task done TASK_ID --note "Ekran çalışırken kontrol edildi"
 tracking status --json
 ```
 
-Engel için `tracking task block TASK_ID --note "Engel"`, yeniden sıraya almak için `tracking task reopen TASK_ID --note "Neden"` kullan. `tracking context` açık işleri kısa bir metin olarak özetler.
+Engel için `tracking task block TASK_ID --note "Engel"`, yeniden sıraya almak için `tracking task reopen TASK_ID --note "Neden"` kullan. İş bitti ama inceleme veya onay bekliyorsa `tracking task review TASK_ID --note "Neyin hazır olduğu ve nasıl doğrulandığı"` kullan; `tracking next` incelemedeki görevleri önermez. Onaydan sonra görevi `tracking task done` ile kapat; değişiklik istenirse `tracking task start` ile geri al. `tracking context` açık işleri kısa bir metin olarak özetler.
 
 Tek bir kaydı JSON olarak görmek için `tracking plan show PLAN_ID` (bağlı görevleriyle) veya `tracking task show TASK_ID` (geçmişiyle) kullan. Düzenleme komutları yalnız verdiğin alanları değiştirir:
 
