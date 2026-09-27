@@ -110,7 +110,7 @@ tracking task done TASK_ID --note "Checked the screen at runtime"
 tracking status --json
 ```
 
-Use `tracking task block TASK_ID --note "Reason"` when work is blocked, and `tracking task reopen TASK_ID --note "Reason"` to return it to `todo`. When finished work awaits review or approval, use `tracking task review TASK_ID --note "What is ready and how it was checked"`; `tracking next` does not suggest tasks in review. After approval, close the task with `tracking task done`; if changes are requested, move it back with `tracking task start`. `tracking context` prints a short summary of open work.
+Use `tracking task block TASK_ID --note "Reason"` when work is blocked, and `tracking task reopen TASK_ID --note "Reason"` to return it to `todo`. When finished work awaits review or approval, use `tracking task review TASK_ID --note "What is ready and how it was checked"`; `tracking next` does not suggest tasks in review. After approval, close the task with `tracking task done`; if changes are requested, move it back with `tracking task start`. `tracking context` prints a short summary for agent sessions: task counts, tasks in `doing`, `review`, or `blocked`, and the next five tasks from `tracking next`. `tracking context --all` lists every open task by plan.
 
 Inspect one record as JSON with `tracking plan show PLAN_ID` (including its tasks) or `tracking task show TASK_ID` (including its history). Edit only the fields you provide:
 
@@ -163,7 +163,7 @@ tracking integrate codex
 tracking integrate claude
 ```
 
-Each command installs the Tracking skill and a session-start hook that runs `tracking context`. The skill tells the agent to read plans, update tasks, and note completed work. Before marking a task done, the agent follows the project's own rules, such as a definition of done in `CLAUDE.md` or `AGENTS.md`, and uses `review` when finished work still awaits approval. The hook reminds the agent of project status when a session starts, resumes, or refreshes its context; it does not change tasks by itself.
+Each command installs the Tracking skill and a session-start hook that runs `tracking context`. The skill tells the agent to read plans, update tasks, and note completed work. Before marking a task done, the agent follows the project's own rules, such as a definition of done in `CLAUDE.md` or `AGENTS.md`, and uses `review` when finished work still awaits approval. The hook reminds the agent of project status when a session starts, resumes, or refreshes its context; it does not change tasks by itself. Its output stays short in large projects; `tracking context --all` shows every open task.
 
 | Agent | Project skill | Project hook |
 | --- | --- | --- |

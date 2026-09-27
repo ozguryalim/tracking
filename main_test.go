@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -219,6 +220,65 @@ func TestTaskReviewCommandIsListedButNotNext(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), "0/2 done, 1 in review") || !strings.Contains(output.String(), "review  "+reviewed.ID) {
 		t.Fatalf("status does not show the task in review:\n%s", output.String())
+	}
+}
+
+func TestContextListsStartedAndNextTasksUnlessAll(t *testing.T) {
+	store, _ := testStore(t)
+	ctx := context.Background()
+	project := mustProject(t, store, "Context")
+	plan := mustPlan(t, store, project.ID)
+	var todo []Task
+	for i := range 8 {
+		todo = append(todo, mustTask(t, store, project.ID, plan.ID, fmt.Sprintf("Todo %d", i+1)))
+	}
+	started := map[string]Task{}
+	for _, status := range []string{"doing", "review", "blocked", "done"} {
+		task := mustTask(t, store, project.ID, plan.ID, "Task "+status)
+		if _, err := store.PatchTask(ctx, task.ID, TaskPatch{Status: &status, Note: "Moved to " + status}, "test"); err != nil {
+			t.Fatal(err)
+		}
+		started[status] = task
+	}
+
+	// The session hook runs tracking context everywhere; outside a project it prints nothing.
+	t.Chdir(t.TempDir())
+	var output bytes.Buffer
+	if err := runContext(ctx, store, nil, &output, io.Discard); err != nil || output.Len() != 0 {
+		t.Fatalf("context outside a project: output=%q err=%v", output.String(), err)
+	}
+	chdirToProject(t, project)
+
+	if err := runContext(ctx, store, nil, &output, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	summary := output.String()
+	for _, want := range []string{
+		"Tracking project: Context. 1 of 12 tasks done; 1 doing, 1 in review, 1 blocked, 8 todo.\n",
+		"- [doing] " + started["doing"].ID, "- [review] " + started["review"].ID, "- [blocked] " + started["blocked"].ID,
+		"Next:\n- [todo] " + todo[0].ID, "- [todo] " + todo[4].ID,
+		"3 more todo tasks not listed; run `tracking context --all` for every open task.\n",
+	} {
+		if !strings.Contains(summary, want) {
+			t.Errorf("default context lacks %q:\n%s", want, summary)
+		}
+	}
+	if strings.Contains(summary, todo[5].ID) || strings.Contains(summary, started["done"].ID) || strings.Count(summary, "\n") != 11 {
+		t.Errorf("default context is not limited to started and next tasks:\n%s", summary)
+	}
+
+	output.Reset()
+	if err := runContext(ctx, store, []string{"--all"}, &output, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	full := output.String()
+	for _, task := range append(todo, started["doing"], started["review"], started["blocked"]) {
+		if !strings.Contains(full, "] "+task.ID+" "+task.Title+"\n") {
+			t.Errorf("full context lacks %s:\n%s", task.Title, full)
+		}
+	}
+	if !strings.Contains(full, "Plan "+plan.ID+": ") || strings.Contains(full, started["done"].ID) || strings.Contains(full, "not listed") {
+		t.Errorf("full context should list open tasks by plan:\n%s", full)
 	}
 }
 

@@ -114,7 +114,7 @@ tracking task done TASK_ID --note "Ekran çalışırken kontrol edildi"
 tracking status --json
 ```
 
-Engel için `tracking task block TASK_ID --note "Engel"`, yeniden sıraya almak için `tracking task reopen TASK_ID --note "Neden"` kullan. İş bitti ama inceleme veya onay bekliyorsa `tracking task review TASK_ID --note "Neyin hazır olduğu ve nasıl doğrulandığı"` kullan; `tracking next` incelemedeki görevleri önermez. Onaydan sonra görevi `tracking task done` ile kapat; değişiklik istenirse `tracking task start` ile geri al. `tracking context` açık işleri kısa bir metin olarak özetler.
+Engel için `tracking task block TASK_ID --note "Engel"`, yeniden sıraya almak için `tracking task reopen TASK_ID --note "Neden"` kullan. İş bitti ama inceleme veya onay bekliyorsa `tracking task review TASK_ID --note "Neyin hazır olduğu ve nasıl doğrulandığı"` kullan; `tracking next` incelemedeki görevleri önermez. Onaydan sonra görevi `tracking task done` ile kapat; değişiklik istenirse `tracking task start` ile geri al. `tracking context` ajan oturumları için kısa bir özet verir: görev sayıları, `doing`, `review` veya `blocked` durumundaki görevler ve `tracking next` sırasındaki ilk beş görev. Tüm açık görevleri planlara göre görmek için `tracking context --all` kullan.
 
 Tek bir kaydı JSON olarak görmek için `tracking plan show PLAN_ID` (bağlı görevleriyle) veya `tracking task show TASK_ID` (geçmişiyle) kullan. Düzenleme komutları yalnız verdiğin alanları değiştirir:
 
@@ -167,7 +167,7 @@ tracking integrate codex
 tracking integrate claude
 ```
 
-Her komut ilgili `tracking` skill’ini ve oturum başlangıcında `tracking context` çalıştıran hook’u kurar. Skill, ajana planı okuma, görevleri güncelleme ve tamamlanan işi not etme akışını anlatır. Ajan bir görevi `done` yapmadan önce projenin kendi kurallarına (ör. `CLAUDE.md` veya `AGENTS.md` içindeki bitiş tanımı) uyar; biten ama hâlâ onay bekleyen iş için `review` kullanır. Hook oturum açıldığında, devam edildiğinde veya bağlam yenilendiğinde kısa proje durumunu hatırlatır; görevleri kendi başına değiştirmez.
+Her komut ilgili `tracking` skill’ini ve oturum başlangıcında `tracking context` çalıştıran hook’u kurar. Skill, ajana planı okuma, görevleri güncelleme ve tamamlanan işi not etme akışını anlatır. Ajan bir görevi `done` yapmadan önce projenin kendi kurallarına (ör. `CLAUDE.md` veya `AGENTS.md` içindeki bitiş tanımı) uyar; biten ama hâlâ onay bekleyen iş için `review` kullanır. Hook oturum açıldığında, devam edildiğinde veya bağlam yenilendiğinde kısa proje durumunu hatırlatır; görevleri kendi başına değiştirmez. Büyük projelerde de çıktısı kısa kalır; tüm açık görevler için `tracking context --all` kullanılır.
 
 | Araç | Proje skill’i | Proje hook’u |
 | --- | --- | --- |
