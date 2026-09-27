@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -218,6 +219,25 @@ func TestTaskReviewCommandIsListedButNotNext(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), "0/2 done, 1 in review") || !strings.Contains(output.String(), "review  "+reviewed.ID) {
 		t.Fatalf("status does not show the task in review:\n%s", output.String())
+	}
+}
+
+func TestTrackingSkillDefersCompletionToProjectRules(t *testing.T) {
+	skill := string(trackingSkill)
+	if !strings.Contains(skill, "definition of done") || !strings.Contains(skill, "tracking task review ID") {
+		t.Fatal("skill does not point agents to the project's definition of done and the review status")
+	}
+	if strings.Contains(skill, "Do not require separate approval") {
+		t.Fatal("skill still tells agents to skip approval")
+	}
+	var usage bytes.Buffer
+	printUsage(&usage)
+	for _, match := range regexp.MustCompile("`tracking ([a-z]+(?: [a-z]+)?)").FindAllStringSubmatch(skill, -1) {
+		// help prints the usage itself, so it is not listed there.
+		listed := regexp.MustCompile(`(?m)^  tracking ` + match[1] + `( |$)`)
+		if match[1] != "help" && !listed.MatchString(usage.String()) {
+			t.Errorf("skill mentions tracking %s, which the usage does not list", match[1])
+		}
 	}
 }
 
